@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Outer Ring -->
+  <circle cx="100" cy="100" r="94" stroke="#0d9488" stroke-width="4" stroke-dasharray="6 3" />
+  <circle cx="100" cy="100" r="86" fill="#0f172a" stroke="#14b8a6" stroke-width="3" />
+  
+  <!-- Laurel Wreath Leaves -->
+  <path d="M 40 100 C 35 125 50 155 75 168 C 65 155 58 135 60 115 Z" fill="#0d9488" opacity="0.8"/>
+  <path d="M 160 100 C 165 125 150 155 125 168 C 135 155 142 135 140 115 Z" fill="#0d9488" opacity="0.8"/>
+  
+  <!-- Shield Background -->
+  <path d="M 60 60 L 140 60 C 140 110 100 145 100 145 C 100 145 60 110 60 60 Z" fill="#134e4a" stroke="#2dd4bf" stroke-width="2"/>
+  
+  <!-- Graduation Cap & Star -->
+  <path d="M 100 68 L 128 80 L 100 92 L 72 80 Z" fill="#fbbf24"/>
+  <polygon points="128,80 128,95 124,95 124,82" fill="#d97706"/>
+  <path d="M 85 86 C 85 96 115 96 115 86" fill="none" stroke="#f59e0b" stroke-width="2"/>
+  
+  <!-- Open Book -->
+  <path d="M 80 102 C 90 98 100 102 100 102 C 100 102 110 98 120 102 L 120 122 C 110 118 100 122 100 122 C 100 122 90 118 80 122 Z" fill="#f8fafc" stroke="#0f766e" stroke-width="1.5"/>
+  <line x1="100" y1="102" x2="100" y2="122" stroke="#0f766e" stroke-width="1.5"/>
+  
+  <!-- JMT Monogram -->
+  <text x="100" y="162" text-anchor="middle" fill="#5eead4" font-family="'Inter', sans-serif" font-weight="900" font-size="14" letter-spacing="2">JMT</text>
+  
+  <!-- Curved Text Banner -->
+  <text x="100" y="44" text-anchor="middle" fill="#99f6e4" font-family="'Inter', sans-serif" font-weight="800" font-size="9" letter-spacing="1">PUBLIC HIGHER SECONDARY</text>
+  <text x="100" y="184" text-anchor="middle" fill="#cbd5e1" font-family="'Inter', sans-serif" font-weight="700" font-size="8" letter-spacing="1">SCHOOL &amp; COLLEGE</text>
+</svg>

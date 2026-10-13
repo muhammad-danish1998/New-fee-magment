@@ -1,0 +1,501 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-100 text-slate-800 dark:bg-slate-950 dark:text-slate-100 font-sans antialiased transition-colors duration-200;
+  }
+}
+
+/* ========================================================================== */
+/* UNIVERSAL LIGHT & DARK MODE DESIGN SYSTEM                                 */
+/* ========================================================================== */
+
+html:not(.dark) {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) body {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Card & Surface Containers in Light Mode */
+html:not(.dark) .bg-slate-900,
+html:not(.dark) [class*="bg-slate-900"] {
+  background-color: #ffffff !important;
+}
+
+/* Modal Headers, Sub-bars & Surface Panels in Light Mode */
+html:not(.dark) .bg-slate-850,
+html:not(.dark) [class*="bg-slate-850"] {
+  background-color: #f8fafc !important;
+}
+
+/* Table and Row Hovers in Light Mode */
+html:not(.dark) [class*="hover:bg-slate-850"]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Inner Cards, Section Panels, and Table Backgrounds in Light Mode */
+html:not(.dark) .bg-slate-950,
+html:not(.dark) [class*="bg-slate-950"] {
+  background-color: #f8fafc !important;
+}
+
+/* Secondary Badges, Chips & Buttons in Light Mode */
+html:not(.dark) .bg-slate-800,
+html:not(.dark) [class*="bg-slate-800"] {
+  background-color: #f1f5f9 !important;
+}
+
+/* Subtle Borders in Light Mode */
+html:not(.dark) .border-slate-800,
+html:not(.dark) [class*="border-slate-800"],
+html:not(.dark) .border-slate-700,
+html:not(.dark) [class*="border-slate-700"] {
+  border-color: #e2e8f0 !important;
+}
+
+/* Deep / Tinted Section Cards in Light Mode */
+html:not(.dark) [class*="bg-purple-950"],
+html:not(.dark) [class*="bg-purple-900"] {
+  background-color: #faf5ff !important;
+  border-color: #e9d5ff !important;
+}
+
+html:not(.dark) [class*="bg-amber-950"] {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+}
+
+html:not(.dark) [class*="bg-emerald-950"] {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+}
+
+html:not(.dark) [class*="bg-teal-950"] {
+  background-color: #f0fdfa !important;
+  border-color: #99f6e4 !important;
+}
+
+html:not(.dark) [class*="bg-rose-950"] {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+html:not(.dark) [class*="bg-blue-950"] {
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
+}
+
+/* Secondary Button Badges & Tints in Light Mode */
+html:not(.dark) [class*="bg-purple-600/"],
+html:not(.dark) [class*="bg-purple-500/"] {
+  background-color: #f3e8ff !important;
+  border-color: #d8b4fe !important;
+  color: #6b21a8 !important;
+}
+
+html:not(.dark) [class*="bg-emerald-600/"],
+html:not(.dark) [class*="bg-emerald-500/"] {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #047857 !important;
+}
+
+html:not(.dark) [class*="bg-amber-500/"],
+html:not(.dark) [class*="bg-amber-600/"] {
+  background-color: #fffbeb !important;
+  border-color: #fde68a !important;
+  color: #92400e !important;
+}
+
+html:not(.dark) [class*="bg-teal-500/"],
+html:not(.dark) [class*="bg-teal-600/"] {
+  background-color: #f0fdfa !important;
+  border-color: #99f6e4 !important;
+  color: #0f766e !important;
+}
+
+html:not(.dark) [class*="bg-rose-500/"],
+html:not(.dark) [class*="bg-rose-600/"] {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #be123c !important;
+}
+
+/* High-Contrast Typography in Light Mode */
+html:not(.dark) .text-white,
+html:not(.dark) [class*="text-slate-100"],
+html:not(.dark) [class*="text-slate-200"] {
+  color: #0f172a !important;
+}
+
+html:not(.dark) .text-slate-300,
+html:not(.dark) [class*="text-slate-300"] {
+  color: #1e293b !important;
+}
+
+/* Form and Field Labels in Light Mode: Crisp, High-Contrast Slate-700 */
+html:not(.dark) .text-slate-400,
+html:not(.dark) [class*="text-slate-400"] {
+  color: #334155 !important;
+  font-weight: 600;
+}
+
+html:not(.dark) .text-slate-500,
+html:not(.dark) [class*="text-slate-500"] {
+  color: #475569 !important;
+}
+
+html:not(.dark) .text-slate-600,
+html:not(.dark) [class*="text-slate-600"] {
+  color: #1e293b !important;
+}
+
+/* Colored Accents for High Contrast in Light Mode (Transforms pastel tints to deep readable colors) */
+html:not(.dark) .text-emerald-300,
+html:not(.dark) [class*="text-emerald-300"],
+html:not(.dark) .text-emerald-400,
+html:not(.dark) [class*="text-emerald-400"] {
+  color: #047857 !important;
+}
+
+html:not(.dark) .text-amber-200,
+html:not(.dark) [class*="text-amber-200"],
+html:not(.dark) .text-amber-300,
+html:not(.dark) [class*="text-amber-300"],
+html:not(.dark) .text-amber-400,
+html:not(.dark) [class*="text-amber-400"] {
+  color: #92400e !important;
+}
+
+html:not(.dark) .text-rose-300,
+html:not(.dark) [class*="text-rose-300"],
+html:not(.dark) .text-rose-400,
+html:not(.dark) [class*="text-rose-400"] {
+  color: #be123c !important;
+}
+
+html:not(.dark) .text-teal-300,
+html:not(.dark) [class*="text-teal-300"],
+html:not(.dark) .text-teal-400,
+html:not(.dark) [class*="text-teal-400"] {
+  color: #0f766e !important;
+}
+
+html:not(.dark) .text-indigo-300,
+html:not(.dark) [class*="text-indigo-300"],
+html:not(.dark) .text-indigo-400,
+html:not(.dark) [class*="text-indigo-400"] {
+  color: #3730a3 !important;
+}
+
+html:not(.dark) .text-purple-300,
+html:not(.dark) [class*="text-purple-300"],
+html:not(.dark) .text-purple-400,
+html:not(.dark) [class*="text-purple-400"] {
+  color: #6b21a8 !important;
+}
+
+html:not(.dark) .text-blue-300,
+html:not(.dark) [class*="text-blue-300"],
+html:not(.dark) .text-blue-400,
+html:not(.dark) [class*="text-blue-400"] {
+  color: #1d4ed8 !important;
+}
+
+/* Form Inputs, Selects & Textareas in Light Mode */
+html:not(.dark) input:not([type="checkbox"]):not([type="radio"]),
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html:not(.dark) input::placeholder,
+html:not(.dark) textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Interactive Hover States in Light Mode */
+html:not(.dark) tr[class*="hover:bg-slate-800"]:hover,
+html:not(.dark) tr:hover,
+html:not(.dark) [class*="hover:bg-slate-800"]:hover {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) button[class*="hover:bg-slate-700"]:hover {
+  background-color: #e2e8f0 !important;
+}
+
+/* Preserve White Text for Primary Buttons & Gradients in Light Mode */
+html:not(.dark) .bg-teal-600,
+html:not(.dark) .bg-teal-600 *,
+html:not(.dark) .bg-teal-500,
+html:not(.dark) .bg-teal-500 *,
+html:not(.dark) .bg-indigo-600,
+html:not(.dark) .bg-indigo-600 *,
+html:not(.dark) .bg-indigo-500,
+html:not(.dark) .bg-indigo-500 *,
+html:not(.dark) .bg-rose-600,
+html:not(.dark) .bg-rose-600 *,
+html:not(.dark) [class*="bg-gradient-to-"],
+html:not(.dark) [class*="bg-gradient-to-"] * {
+  color: #ffffff !important;
+}
+
+/* Modal Dimming Overlays: Keep dark transparent backdrop in both modes */
+html:not(.dark) [class*="bg-black/"],
+html:not(.dark) [class*="bg-black/80"],
+html:not(.dark) [class*="bg-black/75"],
+html:not(.dark) [class*="bg-black/70"] {
+  background-color: rgba(15, 23, 42, 0.75) !important;
+}
+
+/* ========================================================================== */
+/* DARK MODE HIGH-CONTRAST TYPOGRAPHY & VISIBILITY SYSTEM                     */
+/* ========================================================================== */
+
+html.dark body,
+html.dark .min-h-screen,
+html.dark [class*="min-h-screen"] {
+  background-color: #0b0f19 !important;
+  color: #ffffff !important;
+}
+
+/* Card & Surface Containers in Dark Mode */
+html.dark .bg-white,
+html.dark [class*="bg-white"],
+html.dark .bg-slate-100,
+html.dark [class*="bg-slate-100"],
+html.dark .bg-slate-50,
+html.dark [class*="bg-slate-50"] {
+  background-color: #0f172a !important;
+}
+
+/* Secondary Panels, Sub-cards, Tables & Deep Containers in Dark Mode */
+html.dark .bg-slate-950,
+html.dark [class*="bg-slate-950"],
+html.dark [class*="bg-slate-900/60"],
+html.dark [class*="bg-slate-900/80"] {
+  background-color: #172033 !important;
+}
+
+/* Interactive Badges & Secondary Buttons in Dark Mode */
+html.dark .bg-slate-800,
+html.dark [class*="bg-slate-800"],
+html.dark button.bg-slate-100,
+html.dark button[class*="bg-slate-100"] {
+  background-color: #1e293b !important;
+}
+
+/* Subtle Borders in Dark Mode */
+html.dark .border-slate-200,
+html.dark [class*="border-slate-200"],
+html.dark .border-slate-300,
+html.dark [class*="border-slate-300"] {
+  border-color: #1e293b !important;
+}
+
+html.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+/* Hover States in Dark Mode */
+html.dark tr[class*="hover:bg-slate-100"]:hover,
+html.dark tr:hover,
+html.dark [class*="hover:bg-slate-100"]:hover,
+html.dark [class*="hover:bg-slate-50"]:hover {
+  background-color: #1e293b !important;
+}
+
+html.dark button[class*="hover:bg-slate-200"]:hover {
+  background-color: #334155 !important;
+}
+
+/* Preserve Transparent Backdrop for Modal Overlays */
+html.dark [class*="bg-black/"],
+html.dark [class*="bg-black/80"],
+html.dark [class*="bg-black/75"],
+html.dark [class*="bg-black/70"] {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Preserve Primary Vibrant Action Buttons & Gradients in Dark Mode */
+html.dark .bg-teal-600,
+html.dark [class*="bg-teal-600"],
+html.dark .bg-teal-500,
+html.dark [class*="bg-teal-500"],
+html.dark .bg-indigo-600,
+html.dark [class*="bg-indigo-600"],
+html.dark .bg-indigo-500,
+html.dark [class*="bg-indigo-500"],
+html.dark .bg-rose-600,
+html.dark [class*="bg-rose-600"],
+html.dark [class*="bg-gradient-to-"] {
+  /* Retain bright button styles */
+}
+
+/* All headings in dark mode must be pure crisp white */
+html.dark h1,
+html.dark h2,
+html.dark h3,
+html.dark h4,
+html.dark h5,
+html.dark h6 {
+  color: #ffffff !important;
+}
+
+/* Primary text, titles, numbers, and dark text overrides in dark mode */
+html.dark .text-white,
+html.dark [class*="text-slate-100"],
+html.dark [class*="text-slate-200"],
+html.dark [class*="text-slate-700"],
+html.dark [class*="text-slate-800"],
+html.dark [class*="text-slate-900"],
+html.dark [class*="text-gray-700"],
+html.dark [class*="text-gray-800"],
+html.dark [class*="text-gray-900"],
+html.dark .text-black {
+  color: #ffffff !important;
+}
+
+/* Secondary text, subtitles, labels, and table headers in dark mode */
+/* Elevated to bright crisp silver (#e2e8f0) so visibility is 100% clear with zero strain */
+html.dark .text-slate-300,
+html.dark [class*="text-slate-300"],
+html.dark .text-slate-400,
+html.dark [class*="text-slate-400"],
+html.dark .text-slate-500,
+html.dark [class*="text-slate-500"],
+html.dark .text-slate-600,
+html.dark [class*="text-slate-600"],
+html.dark [class*="text-gray-400"],
+html.dark [class*="text-gray-500"],
+html.dark [class*="text-gray-600"] {
+  color: #e2e8f0 !important;
+}
+
+/* Table headers in dark mode */
+html.dark th {
+  color: #cbd5e1 !important;
+}
+
+/* Ensure inputs in dark mode have bright white text and dark slate background */
+html.dark input:not([type="checkbox"]):not([type="radio"]),
+html.dark select,
+html.dark textarea {
+  background-color: #020617 !important;
+  border-color: #334155 !important;
+  color: #ffffff !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Ensure dropdown options have visible background and white text */
+html.dark select option {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+/* ========================================================================== */
+/* UNIVERSAL TYPOGRAPHY SAFEGUARDS & MOBILE RESPONSIVENESS                    */
+/* ========================================================================== */
+
+/* Prevent illegibly small micro-fonts across the entire application */
+.text-\[9px\],
+.text-\[9\.5px\],
+.text-\[10px\] {
+  font-size: 0.75rem !important; /* 12px minimum legible size */
+  line-height: 1.125rem !important;
+}
+
+.text-\[10\.5px\],
+.text-\[11px\] {
+  font-size: 0.8125rem !important; /* 13px */
+  line-height: 1.25rem !important;
+}
+
+/* Ensure mobile interactive touch targets are comfortable and easy to tap */
+@media (max-width: 640px) {
+  button, a {
+    min-height: 38px;
+  }
+}
+
+
+
+/* Production-grade Printable Slip Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide all app background elements */
+  body * {
+    visibility: hidden !important;
+  }
+
+  /* Display exclusively the printable fee slip */
+  #printable-fee-slip,
+  #printable-fee-slip * {
+    visibility: visible !important;
+  }
+
+  #printable-fee-slip {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 15px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    border: 2px solid #0d9488 !important;
+    border-radius: 8px !important;
+    box-shadow: none !important;
+    display: block !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Print specific color overrides for high contrast black/teal printing */
+  #printable-fee-slip .print-dark-text {
+    color: #0f172a !important;
+  }
+  #printable-fee-slip .print-muted-text {
+    color: #475569 !important;
+  }
+  #printable-fee-slip .print-bg-light {
+    background-color: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+  }
+  #printable-fee-slip .print-border {
+    border-color: #cbd5e1 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
