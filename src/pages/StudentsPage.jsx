@@ -23,7 +23,8 @@ import { ChangeStatusModal } from '../components/students/ChangeStatusModal';
 import { ReopenStudentModal } from '../components/students/ReopenStudentModal';
 import { DeleteStudentSafeModal } from '../components/students/DeleteStudentSafeModal';
 import { isActive, isArchived, getStudentStatus } from '../utils/studentStatus';
-import { formatCurrency, formatDate, getFeeStatus } from '../utils/feeCalculator';
+import { formatCurrency, formatDate, getFeeStatus, toTitleCase } from '../utils/feeCalculator';
+import { formatPhoneNumber } from '../utils/phoneHelper';
 import { exportStudentsToCSV } from '../utils/csvExport';
 
 export function StudentsPage() {
@@ -49,15 +50,46 @@ export function StudentsPage() {
   }, [searchParams]);
   const [statusTab, setStatusTab] = useState(initialStatusTab);
 
+  // Parse session from query params ('Annual I' or 'Annual II')
+  const initialAdmissionSession = useMemo(() => {
+    const s = searchParams.get('session');
+    if (s === 'Annual I' || s === 'Annual 1') return 'Annual I';
+    if (s === 'Annual II' || s === 'Annual 2') return 'Annual II';
+    return 'All';
+  }, [searchParams]);
+
+  // Parse fee status / dues from query params
+  const initialFeeStatus = useMemo(() => {
+    const duesParam = searchParams.get('dues');
+    const feeStatusParam = searchParams.get('fee_status') || searchParams.get('feeStatus');
+    if (duesParam === 'pending' || duesParam === 'true' || feeStatusParam === 'dues' || feeStatusParam === 'Has Dues' || feeStatusParam === 'has_dues') {
+      return 'Has Dues';
+    }
+    if (feeStatusParam === 'Paid in Full' || feeStatusParam === 'paid') return 'Paid in Full';
+    if (feeStatusParam === 'No fee / Waived' || feeStatusParam === 'no_fee' || feeStatusParam === 'waived') return 'No fee / Waived';
+    if (feeStatusParam === 'Overdue' || feeStatusParam === 'overdue') return 'Overdue';
+    if (feeStatusParam === 'Due' || feeStatusParam === 'due') return 'Due';
+    if (feeStatusParam === 'Unpaid' || feeStatusParam === 'unpaid') return 'Unpaid';
+    if (feeStatusParam === 'No due date' || feeStatusParam === 'no_due_date' || feeStatusParam === 'nodate') return 'No due date';
+    return 'All';
+  }, [searchParams]);
+
   // Search & Filter State
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [chipFilter, setChipFilter] = useState('All'); // 'All' | 'Overdue' | 'Due this week' | 'Paid'
   const [admissionType, setAdmissionType] = useState('All');
-  const [admissionSession, setAdmissionSession] = useState('All');
+  const [admissionSession, setAdmissionSession] = useState(initialAdmissionSession);
   const [admissionSource, setAdmissionSource] = useState('All');
-  const [feeStatus, setFeeStatus] = useState('All');
+  const [feeStatus, setFeeStatus] = useState(initialFeeStatus);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  // Sync state whenever query parameters change
+  useEffect(() => {
+    setStatusTab(initialStatusTab);
+    setAdmissionSession(initialAdmissionSession);
+    setFeeStatus(initialFeeStatus);
+  }, [initialStatusTab, initialAdmissionSession, initialFeeStatus]);
 
   // Sorting & Pagination State
   const [sortField, setSortField] = useState('created_at'); // 'name' | 'dues' | 'due_date' | 'created_at'
@@ -172,13 +204,22 @@ export function StudentsPage() {
     return dueDate >= today && dueDate <= nextWeek;
   };
 
-  // Helper to extract stage progress
+  // Helper to extract stage progress (counts completed steps so directory agrees with detail page)
   const getStageInfo = (student) => {
-    if (student.admit_card_issued) return { step: 4, label: 'Stage 4/4' };
-    if (student.examination_verification) return { step: 3, label: 'Stage 3/4' };
-    if (student.enrollment_card_issued) return { step: 2, label: 'Stage 2/4' };
-    if (student.enrollment_verification) return { step: 1, label: 'Stage 1/4' };
-    return null;
+    const completedCount = [
+      student.enrollment_verification,
+      student.enrollment_card_issued,
+      student.examination_verification,
+      student.admit_card_issued
+    ].filter(Boolean).length;
+
+    if (completedCount === 0) return null;
+
+    return {
+      step: completedCount,
+      completedCount,
+      label: `${completedCount} of 4 Completed`
+    };
   };
 
   // Compute counts per status tab from allStudents
@@ -248,10 +289,17 @@ export function StudentsPage() {
       const computed = getFeeStatus(student);
 
       if (feeStatus !== 'All') {
-        if (feeStatus === 'Paid in Full' && !computed.isPaid) return false;
+        if (feeStatus === 'Has Dues' && (Number(student.dues) || 0) <= 0) return false;
+        if (feeStatus === 'Paid in Full' && ((Number(student.total_fee) || 0) <= 0 || !computed.isPaid)) return false;
+        if (feeStatus === 'No fee / Waived' && (Number(student.total_fee) || 0) > 0) return false;
         if (feeStatus === 'Overdue' && !computed.isOverdue) return false;
-        if (feeStatus === 'Due' && (computed.isPaid || computed.isOverdue)) return false;
-        if (feeStatus === 'Unpaid' && (student.total_paid > 0 || computed.isPaid)) return false;
+        if (feeStatus === 'Due' && (computed.isPaid || computed.isNoFee || computed.isOverdue)) return false;
+        if (feeStatus === 'Unpaid' && (student.total_paid > 0 || computed.isPaid || computed.isNoFee)) return false;
+        if (feeStatus === 'No due date') {
+          const hasDues = (Number(student.dues) || 0) > 0;
+          const hasNoDueDate = !student.next_payment_due_date || !String(student.next_payment_due_date).trim();
+          if (!hasDues || !hasNoDueDate) return false;
+        }
       }
 
       // 3. Quick Filter Chips
@@ -261,7 +309,7 @@ export function StudentsPage() {
       if (chipFilter === 'Due this week' && !isDueThisWeek(student)) {
         return false;
       }
-      if (chipFilter === 'Paid' && !computed.isPaid) {
+      if (chipFilter === 'Paid' && ((Number(student.total_fee) || 0) <= 0 || !computed.isPaid)) {
         return false;
       }
 
@@ -343,7 +391,17 @@ export function StudentsPage() {
     if (admissionSession !== 'All') parts.push(admissionSession);
     if (admissionType !== 'All') parts.push(admissionType);
     if (admissionSource !== 'All') parts.push(admissionSource);
-    if (feeStatus !== 'All') parts.push(`Status: ${feeStatus}`);
+    if (feeStatus !== 'All') {
+      parts.push(
+        feeStatus === 'Has Dues'
+          ? 'Remaining Dues'
+          : feeStatus === 'No due date'
+          ? 'No Due Date'
+          : feeStatus === 'No fee / Waived'
+          ? 'No Fee / Waived'
+          : `Status: ${feeStatus}`
+      );
+    }
     if (chipFilter !== 'All') parts.push(chipFilter);
     if (debouncedSearch.trim()) parts.push(`Search: "${debouncedSearch.trim()}"`);
     return parts.length > 0 ? parts.join(' • ') : 'All Students';
@@ -359,6 +417,14 @@ export function StudentsPage() {
     setAdmissionSession('All');
     setFeeStatus('All');
     setMobileFiltersOpen(false);
+    if (searchParams.get('session') || searchParams.get('dues') || searchParams.get('fee_status') || searchParams.get('feeStatus')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('session');
+      next.delete('dues');
+      next.delete('fee_status');
+      next.delete('feeStatus');
+      setSearchParams(next, { replace: true });
+    }
   };
 
   // Toggle sorting
@@ -462,7 +528,7 @@ export function StudentsPage() {
           >
             <span>{tab.label}</span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-extrabold ${
+              className={`px-2 py-0.5 rounded-full text-[11px] font-sans tabular-nums font-extrabold ${
                 statusTab === tab.id
                   ? 'bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-700/60'
                   : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300'
@@ -497,7 +563,7 @@ export function StudentsPage() {
               </span>
             )}
           </div>
-          <div className="text-base sm:text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
+          <div className="text-base sm:text-2xl font-extrabold text-slate-900 dark:text-white font-sans tabular-nums">
             {loading ? (
               <div className="h-6 sm:h-8 w-14 bg-slate-200 dark:bg-slate-800 rounded animate-pulse my-0.5" />
             ) : (
@@ -527,7 +593,7 @@ export function StudentsPage() {
               </span>
             )}
           </div>
-          <div className="text-base sm:text-2xl font-extrabold text-amber-800 dark:text-amber-300 font-mono whitespace-nowrap truncate">
+          <div className="text-base sm:text-2xl font-extrabold text-amber-800 dark:text-amber-300 font-sans tabular-nums whitespace-nowrap truncate">
             {loading ? (
               <div className="h-6 sm:h-8 w-20 bg-slate-200 dark:bg-slate-800 rounded animate-pulse my-0.5" />
             ) : (
@@ -558,7 +624,7 @@ export function StudentsPage() {
               </span>
             )}
           </div>
-          <div className={`text-base sm:text-2xl font-extrabold font-mono ${
+          <div className={`text-base sm:text-2xl font-extrabold font-sans tabular-nums ${
             statusTab === 'left' || statusTab === 'passed_out'
               ? 'text-emerald-700 dark:text-emerald-400'
               : 'text-rose-700 dark:text-rose-400'
@@ -737,7 +803,10 @@ export function StudentsPage() {
               className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-200 text-xs sm:text-sm focus:outline-none focus:border-teal-500 font-medium"
             >
               <option value="All">All Fee Statuses</option>
+              <option value="Has Dues">Has Remaining Dues</option>
+              <option value="No due date">No Due Date (Dues without date)</option>
               <option value="Paid in Full">Paid in Full</option>
+              <option value="No fee / Waived">No fee / Waived</option>
               <option value="Due">Due</option>
               <option value="Overdue">Overdue</option>
               <option value="Unpaid">Unpaid</option>
@@ -843,9 +912,10 @@ export function StudentsPage() {
                 const statusInfo = getFeeStatus(student);
                 const stageInfo = getStageInfo(student);
                 const isPaidFull = statusInfo.isPaid;
-                const paidPercent = student.total_fee > 0
+                const isNoFee = (Number(student.total_fee) || 0) <= 0;
+                const paidPercent = !isNoFee && student.total_fee > 0
                   ? Math.min(100, Math.round(((student.total_paid || 0) / student.total_fee) * 100))
-                  : 100;
+                  : 0;
 
                 return (
                   <div
@@ -858,7 +928,7 @@ export function StudentsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="font-extrabold text-slate-900 dark:text-white text-base leading-snug">
-                            {student.student_name}
+                            {toTitleCase(student.student_name)}
                           </span>
                           {isArchived(student) && (
                             <StudentStatusBadge status={student.status} size="xs" />
@@ -875,16 +945,16 @@ export function StudentsPage() {
 
                     {/* Line 2: Father Name + Tap-to-call Phone */}
                     <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 flex items-center flex-wrap gap-2">
-                      <span>Father: <strong className="text-slate-800 dark:text-slate-200">{student.father_name}</strong></span>
+                      <span>Father: <strong className="text-slate-800 dark:text-slate-200">{toTitleCase(student.father_name)}</strong></span>
                       {student.contact_number ? (
                         <a
                           href={`tel:${student.contact_number}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="inline-flex items-center gap-1 font-mono text-teal-700 dark:text-teal-400 hover:underline min-h-[36px] py-1 px-1.5 -my-1 rounded bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-500/30"
+                          className="inline-flex items-center gap-1 font-sans tabular-nums text-teal-700 dark:text-teal-400 hover:underline min-h-[36px] py-1 px-1.5 -my-1 rounded bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-500/30"
                           title="Call student contact"
                         >
                           <Phone className="w-3 h-3 shrink-0" />
-                          <span>{student.contact_number}</span>
+                          <span>{formatPhoneNumber(student.contact_number)}</span>
                         </a>
                       ) : (
                         <button
@@ -925,49 +995,57 @@ export function StudentsPage() {
                     {/* Fee Block: High-Visibility Progress Bar */}
                     <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800/80 space-y-2.5">
                       <div className="flex items-center justify-between text-xs font-semibold">
-                        <div className="text-slate-700 dark:text-slate-300">
+                        <div className="text-slate-700 dark:text-slate-300 font-sans">
                           <span className="text-slate-500 dark:text-slate-400">Paid: </span>
-                          <strong className="text-emerald-700 dark:text-emerald-400 font-mono font-bold">{formatCurrency(student.total_paid)}</strong>
+                          <strong className="text-emerald-700 dark:text-emerald-400 font-bold tabular-nums">{formatCurrency(student.total_paid)}</strong>
                           <span className="text-slate-400 dark:text-slate-500 mx-1">of</span>
-                          <span className="font-mono text-slate-700 dark:text-slate-300">{formatCurrency(student.total_fee)}</span>
+                          <span className="text-slate-700 dark:text-slate-300 tabular-nums">{formatCurrency(student.total_fee)}</span>
                         </div>
-                        <span
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-extrabold border ${
-                            paidPercent === 100
-                              ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40'
-                              : paidPercent > 0
-                              ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-500/40'
-                              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                          }`}
-                        >
-                          {paidPercent}% Paid
-                        </span>
+                        {isNoFee ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-bold border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700">
+                            No Fee
+                          </span>
+                        ) : (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-sans tabular-nums font-extrabold border ${
+                              paidPercent === 100
+                                ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40'
+                                : paidPercent > 0
+                                ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-500/40'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                            }`}
+                          >
+                            {paidPercent}% Paid
+                          </span>
+                        )}
                       </div>
 
                       {/* Recessed High-Contrast Progress Gauge */}
                       <div
                         className="w-full h-3 bg-slate-200 dark:bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-300 dark:border-slate-700 shadow-inner"
                         role="progressbar"
-                        aria-valuenow={paidPercent}
+                        aria-valuenow={isNoFee ? 0 : paidPercent}
                         aria-valuemin="0"
                         aria-valuemax="100"
-                        aria-label={`Fee payment progress: ${paidPercent}%`}
+                        aria-label={isNoFee ? 'No fee applies to this student' : `Fee payment progress: ${paidPercent}%`}
                       >
                         <div
                           className={`h-full rounded-full transition-all duration-300 shadow-sm ${
-                            paidPercent === 100
+                            isNoFee
+                              ? 'bg-transparent'
+                              : paidPercent === 100
                               ? 'bg-emerald-500 dark:bg-emerald-400'
                               : paidPercent > 0
                               ? 'bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-400 dark:from-teal-400 dark:to-emerald-400'
                               : 'bg-transparent'
                           }`}
-                          style={{ width: `${paidPercent}%` }}
+                          style={{ width: isNoFee ? '0%' : `${paidPercent}%` }}
                         ></div>
                       </div>
 
                       {/* Dues & Due Date */}
-                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200 dark:border-slate-800/80">
-                        <div className="font-mono">
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200 dark:border-slate-800/80 font-sans tabular-nums">
+                        <div>
                           <span className="text-slate-500 dark:text-slate-400 mr-1.5">Dues:</span>
                           <span
                             className={`font-extrabold ${
@@ -1222,9 +1300,10 @@ export function StudentsPage() {
                     const statusInfo = getFeeStatus(student);
                     const stageInfo = getStageInfo(student);
                     const isPaidFull = statusInfo.isPaid;
-                    const paidPercent = student.total_fee > 0
+                    const isNoFee = (Number(student.total_fee) || 0) <= 0;
+                    const paidPercent = !isNoFee && student.total_fee > 0
                       ? Math.min(100, Math.round(((student.total_paid || 0) / student.total_fee) * 100))
-                      : 100;
+                      : 0;
 
                     return (
                       <tr
@@ -1241,7 +1320,7 @@ export function StudentsPage() {
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-extrabold text-sm text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                              {student.student_name}
+                              {toTitleCase(student.student_name)}
                             </span>
                             {isArchived(student) && (
                               <StudentStatusBadge status={student.status} size="xs" />
@@ -1253,10 +1332,10 @@ export function StudentsPage() {
                             )}
                           </div>
                           <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
-                            Father: <span className="font-medium">{student.father_name}</span>
+                            Father: <span className="font-medium">{toTitleCase(student.father_name)}</span>
                             {student.contact_number ? (
-                              <span className="font-mono text-slate-500 dark:text-slate-400 ml-2">
-                                {student.contact_number}
+                              <span className="font-sans tabular-nums text-slate-500 dark:text-slate-400 ml-2">
+                                {formatPhoneNumber(student.contact_number)}
                               </span>
                             ) : (
                               <button
@@ -1294,49 +1373,57 @@ export function StudentsPage() {
 
                         {/* Col 3: Fee Progress */}
                         <td className="py-3 px-4 min-w-[180px]">
-                          <div className="flex items-center justify-between text-xs font-mono mb-1.5 gap-2">
+                          <div className="flex items-center justify-between text-xs font-sans tabular-nums mb-1.5 gap-2">
                             <div className="font-bold truncate text-slate-800 dark:text-slate-200">
                               <span className="text-emerald-700 dark:text-emerald-400 font-extrabold">{formatCurrency(student.total_paid)}</span>
                               <span className="text-slate-400 dark:text-slate-500 font-normal mx-1">/</span>
                               <span className="text-slate-600 dark:text-slate-400 font-semibold">{formatCurrency(student.total_fee)}</span>
                             </div>
-                            <span
-                              className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-extrabold shrink-0 border ${
-                                paidPercent === 100
-                                  ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40'
-                                  : paidPercent > 0
-                                  ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-500/40'
-                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                              }`}
-                            >
-                              {paidPercent}%
-                            </span>
+                            {isNoFee ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-bold shrink-0 border bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700">
+                                No Fee
+                              </span>
+                            ) : (
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-sans tabular-nums font-extrabold shrink-0 border ${
+                                  paidPercent === 100
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40'
+                                    : paidPercent > 0
+                                    ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-500/40'
+                                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                                }`}
+                              >
+                                {paidPercent}%
+                              </span>
+                            )}
                           </div>
 
                           {/* Recessed High-Contrast Progress Gauge */}
                           <div
                             className="w-full h-2.5 bg-slate-200 dark:bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-300 dark:border-slate-700 shadow-inner"
                             role="progressbar"
-                            aria-valuenow={paidPercent}
+                            aria-valuenow={isNoFee ? 0 : paidPercent}
                             aria-valuemin="0"
                             aria-valuemax="100"
-                            aria-label={`Fee payment progress: ${paidPercent}%`}
+                            aria-label={isNoFee ? 'No fee applies to this student' : `Fee payment progress: ${paidPercent}%`}
                           >
                             <div
                               className={`h-full rounded-full transition-all duration-300 shadow-sm ${
-                                paidPercent === 100
+                                isNoFee
+                                  ? 'bg-transparent'
+                                  : paidPercent === 100
                                   ? 'bg-emerald-500 dark:bg-emerald-400'
                                   : paidPercent > 0
                                   ? 'bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-400 dark:from-teal-400 dark:to-emerald-400'
                                   : 'bg-transparent'
                               }`}
-                              style={{ width: `${paidPercent}%` }}
+                              style={{ width: isNoFee ? '0%' : `${paidPercent}%` }}
                             ></div>
                           </div>
                         </td>
 
                         {/* Col 4: Dues */}
-                        <td className="py-3 px-4 whitespace-nowrap font-mono">
+                        <td className="py-3 px-4 whitespace-nowrap font-sans tabular-nums">
                           <span
                             className={`font-bold text-sm ${
                               statusInfo.isOverdue

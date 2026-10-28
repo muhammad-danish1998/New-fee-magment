@@ -19,6 +19,7 @@ import { adjustStudentPaidAmount } from '../../services/paymentService';
 import { getAdmissionConfig } from '../../services/configService';
 import { getActiveBrokers } from '../../services/brokerService';
 import { formatCurrency } from '../../utils/feeCalculator';
+import { toTitleCase } from '../../utils/textHelper';
 import { formatCNIC, isValidCNIC } from '../../utils/cnicHelper';
 import { formatPakistaniPhoneInput } from '../../utils/phoneHelper';
 
@@ -140,8 +141,8 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
     try {
       setIsSubmitting(true);
       await updateStudent(student.id, {
-        student_name: formData.student_name.trim(),
-        father_name: formData.father_name.trim(),
+        student_name: toTitleCase(formData.student_name.trim()),
+        father_name: toTitleCase(formData.father_name.trim()),
         date_of_birth: formData.date_of_birth || null,
         student_cnic: rawCnic,
         father_cnic: formData.father_cnic.trim() ? formatCNIC(formData.father_cnic) : null,
@@ -210,7 +211,7 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
                 Edit Student Profile
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
-                Editing: <span className="font-semibold text-slate-800 dark:text-slate-200">{student.student_name}</span>
+                Editing: <span className="font-semibold text-slate-800 dark:text-slate-200">{toTitleCase(student.student_name)}</span>
                 {student.program_group ? ` • ${student.program_group}` : ''}
               </p>
             </div>
@@ -314,13 +315,13 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
                     Agreed Broker Fee (PKR)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-slate-400 font-mono text-xs">Rs.</span>
+                    <span className="absolute left-3 top-2.5 text-slate-400 font-sans tabular-nums text-xs">Rs</span>
                     <input
                       type="number"
                       min="0"
                       value={formData.broker_agreed_amount}
                       onChange={(e) => setFormData({ ...formData, broker_agreed_amount: e.target.value })}
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-teal-500/50 text-teal-700 dark:text-teal-300 font-mono font-bold text-xs focus:outline-none focus:border-teal-500"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white dark:bg-slate-900 border border-teal-500/50 text-teal-700 dark:text-teal-300 font-sans tabular-nums font-bold text-xs focus:outline-none focus:border-teal-500"
                     />
                   </div>
                 </div>
@@ -551,13 +552,15 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-slate-500 dark:text-slate-400">Live Dues:</span>
                 <span
-                  className={`font-mono font-bold text-xs px-2 py-0.5 rounded-md ${
-                    liveDues === 0
+                  className={`font-sans tabular-nums font-bold text-xs px-2 py-0.5 rounded-md ${
+                    Number(formData.total_fee) === 0
+                      ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700'
+                      : liveDues === 0
                       ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
                       : 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
                   }`}
                 >
-                  {liveDues === 0 ? 'PAID IN FULL' : formatCurrency(liveDues)}
+                  {Number(formData.total_fee) === 0 ? 'NO FEE / WAIVED' : liveDues === 0 ? 'PAID IN FULL' : formatCurrency(liveDues)}
                 </span>
               </div>
             </div>
@@ -569,14 +572,14 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
                   Total Course Fee (PKR) <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-slate-400 font-mono text-xs">Rs.</span>
+                  <span className="absolute left-3 top-2.5 text-slate-400 font-sans tabular-nums text-xs">Rs</span>
                   <input
                     type="number"
                     min="0"
                     required
                     value={formData.total_fee}
                     onChange={(e) => setFormData({ ...formData, total_fee: e.target.value })}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-mono font-bold focus:outline-none focus:border-teal-500"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white font-sans tabular-nums font-bold focus:outline-none focus:border-teal-500"
                   />
                 </div>
               </div>
@@ -586,14 +589,14 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
                   Recorded Paid (PKR) <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-slate-400 font-mono text-xs">Rs.</span>
+                  <span className="absolute left-3 top-2.5 text-slate-400 font-sans tabular-nums text-xs">Rs</span>
                   <input
                     type="number"
                     min="0"
                     required
                     value={formData.paid_amount}
                     onChange={(e) => setFormData({ ...formData, paid_amount: e.target.value })}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-emerald-700 dark:text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 text-emerald-700 dark:text-emerald-400 font-sans tabular-nums font-bold focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
@@ -631,8 +634,8 @@ export function EditStudentModal({ isOpen, onClose, student, onStudentUpdated })
         <div className="flex items-center justify-between px-5 py-3.5 sm:px-6 sm:py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 shrink-0 gap-3">
           <div className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
             Calculated Dues:{' '}
-            <strong className={`font-mono ${liveDues > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
-              {liveDues === 0 ? 'Rs. 0 (Fully Paid)' : formatCurrency(liveDues)}
+            <strong className={`font-sans tabular-nums ${liveDues > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+              {liveDues === 0 ? 'Rs 0 (Fully Paid)' : formatCurrency(liveDues)}
             </strong>
           </div>
 

@@ -1,6 +1,45 @@
 import { supabase } from '../lib/supabase';
 
 /**
+ * Generate next running sequential receipt number (e.g. RCP-000001, RCP-000002)
+ * Calls the atomic PostgreSQL sequence via Supabase RPC, with robust fallback.
+ */
+export async function getNextReceiptNo() {
+  try {
+    const { data, error } = await supabase.rpc('get_next_receipt_no');
+    if (!error && data) {
+      return data;
+    }
+    if (error) {
+      console.warn('RPC get_next_receipt_no error, falling back:', error.message);
+    }
+  } catch (err) {
+    console.warn('Failed to call get_next_receipt_no RPC, falling back:', err);
+  }
+
+  // Fallback: query highest sequential receipt number from existing records
+  try {
+    const { data: latest } = await supabase
+      .from('payments')
+      .select('receipt_no')
+      .like('receipt_no', 'RCP-0%')
+      .order('receipt_no', { ascending: false })
+      .limit(1);
+
+    if (latest && latest.length > 0 && latest[0]?.receipt_no) {
+      const match = latest[0].receipt_no.match(/RCP-(\d+)/);
+      if (match) {
+        const nextNum = parseInt(match[1], 10) + 1;
+        return `RCP-${String(nextNum).padStart(6, '0')}`;
+      }
+    }
+    return 'RCP-000001';
+  } catch (e) {
+    return `RCP-${Date.now().toString().slice(-6)}`;
+  }
+}
+
+/**
  * Add a new payment record for a student
  */
 export async function addPayment({ studentId, amount, paymentDate, paymentMethod = 'Cash', notes = '' }) {
@@ -29,7 +68,7 @@ export async function addPayment({ studentId, amount, paymentDate, paymentMethod
       throw new Error(`Payment of Rs. ${numAmount.toLocaleString()} exceeds remaining dues of Rs. ${remainingDues.toLocaleString()}.`);
     }
 
-    const receiptNo = `RCP-${Date.now().toString().slice(-6)}`;
+    const receiptNo = await getNextReceiptNo();
 
     const { data, error } = await supabase
       .from('payments')
@@ -150,7 +189,7 @@ export async function adjustStudentPaidAmount(studentId, targetPaidAmount, reaso
       if (delErr) throw delErr;
     }
 
-    const receiptNo = `RCP-${Date.now().toString().slice(-6)}`;
+    const receiptNo = await getNextReceiptNo();
     const { error: insertErr } = await supabase
       .from('payments')
       .insert([{

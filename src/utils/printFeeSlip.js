@@ -1,4 +1,5 @@
-import { formatCurrency, formatDate } from './feeCalculator';
+import { formatCurrency, formatDate, toTitleCase } from './feeCalculator';
+import { formatPhoneNumber } from './phoneHelper';
 
 const collegeLogoSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" style="width:100%; height:100%; display:block;">
@@ -38,7 +39,8 @@ export function printFeeSlip({ student, latestPayment = null }) {
   const totalFee = Number(student.total_fee) || 0;
   const totalPaid = Number(student.total_paid) || 0;
   const remainingDues = Number(student.dues) || 0;
-  const isPaidInFull = remainingDues === 0;
+  const isNoFee = totalFee <= 0;
+  const isPaidInFull = remainingDues === 0 && !isNoFee;
 
   const paidToday = latestPayment ? Number(latestPayment.amount) : 0;
   const previousPaid = Math.max(0, totalPaid - paidToday);
@@ -243,6 +245,11 @@ export function printFeeSlip({ student, latestPayment = null }) {
       border: 1.5px solid #86efac;
       color: #15803d;
     }
+    .status-neutral {
+      background: #f8fafc;
+      border: 1.5px solid #cbd5e1;
+      color: #475569;
+    }
     .status-due {
       background: #fffbeb;
       border: 1.5px solid #fde68a;
@@ -257,7 +264,7 @@ export function printFeeSlip({ student, latestPayment = null }) {
     .dues-text {
       font-size: 13px;
       font-weight: 800;
-      font-family: monospace;
+      font-variant-numeric: tabular-nums;
     }
     .signatures {
       display: flex;
@@ -336,11 +343,11 @@ export function printFeeSlip({ student, latestPayment = null }) {
         <div>
           <div class="info-row">
             <span class="k">Student Name:</span>
-            <span class="v">${escapeHtml(student.student_name)}</span>
+            <span class="v">${escapeHtml(toTitleCase(student.student_name))}</span>
           </div>
           <div class="info-row">
             <span class="k">Father Name:</span>
-            <span class="v">${escapeHtml(student.father_name)}</span>
+            <span class="v">${escapeHtml(toTitleCase(student.father_name))}</span>
           </div>
           <div class="info-row">
             <span class="k">Student CNIC:</span>
@@ -348,7 +355,7 @@ export function printFeeSlip({ student, latestPayment = null }) {
           </div>
           <div class="info-row">
             <span class="k">Contact Number:</span>
-            <span class="v">${escapeHtml(student.contact_number || 'N/A')}</span>
+            <span class="v" style="font-variant-numeric: tabular-nums;">${escapeHtml(student.contact_number ? formatPhoneNumber(student.contact_number) : 'N/A')}</span>
           </div>
         </div>
 
@@ -384,25 +391,25 @@ export function printFeeSlip({ student, latestPayment = null }) {
           <tbody>
             <tr>
               <td>Total Academic Tuition Fee</td>
-              <td class="text-right font-bold" style="font-family: monospace;">${escapeHtml(formatCurrency(totalFee))}</td>
+              <td class="text-right font-bold" style="font-variant-numeric: tabular-nums;">${escapeHtml(formatCurrency(totalFee))}</td>
             </tr>
             <tr>
               <td>Previously Paid Fee</td>
-              <td class="text-right" style="font-family: monospace; color: #475569;">${escapeHtml(formatCurrency(previousPaid))}</td>
+              <td class="text-right" style="font-variant-numeric: tabular-nums; color: #475569;">${escapeHtml(formatCurrency(previousPaid))}</td>
             </tr>
             <tr style="background: #f0fdfa;">
               <td style="font-weight: 700; color: #0f766e;">Paid Amount (Current Transaction)</td>
-              <td class="text-right font-bold" style="font-family: monospace; color: #0f766e; font-size: 12.5px;">${escapeHtml(formatCurrency(paidToday))}</td>
+              <td class="text-right font-bold" style="font-variant-numeric: tabular-nums; color: #0f766e; font-size: 12.5px;">${escapeHtml(formatCurrency(paidToday))}</td>
             </tr>
             <tr style="background: #f8fafc; font-weight: 700;">
               <td>Total Paid Fee to Date</td>
-              <td class="text-right font-bold" style="font-family: monospace; color: #15803d;">${escapeHtml(formatCurrency(totalPaid))}</td>
+              <td class="text-right font-bold" style="font-variant-numeric: tabular-nums; color: #15803d;">${escapeHtml(formatCurrency(totalPaid))}</td>
             </tr>
             <tr style="background: ${remainingDues > 0 ? '#fffbeb' : '#f0fdf4'};">
               <td style="font-weight: 800; font-size: 12px; color: ${remainingDues > 0 ? '#b45309' : '#15803d'};">
                 ${remainingDues > 0 ? 'Remaining Outstanding Dues' : 'Remaining Balance'}
               </td>
-              <td class="text-right font-bold" style="font-family: monospace; font-size: 13px; color: ${remainingDues > 0 ? '#b45309' : '#15803d'};">
+              <td class="text-right font-bold" style="font-variant-numeric: tabular-nums; font-size: 13px; color: ${remainingDues > 0 ? '#b45309' : '#15803d'};">
                 ${escapeHtml(formatCurrency(remainingDues))}
               </td>
             </tr>
@@ -411,21 +418,23 @@ export function printFeeSlip({ student, latestPayment = null }) {
       </div>
 
       <!-- Payment Status Card -->
-      <div class="status-card ${isPaidInFull ? 'status-paid' : 'status-due'}">
+      <div class="status-card ${isNoFee ? 'status-neutral' : isPaidInFull ? 'status-paid' : 'status-due'}">
         <div>
-          <span class="status-badge">${isPaidInFull ? 'PAID IN FULL' : 'PAYMENT DUE'}</span>
+          <span class="status-badge">${isNoFee ? 'NO FEE / WAIVED' : isPaidInFull ? 'PAID IN FULL' : 'PAYMENT DUE'}</span>
           <div style="font-size: 10px; margin-top: 2px;">
-            ${isPaidInFull 
-              ? 'All college admission fees are cleared. Thank you.' 
-              : student.next_payment_due_date 
-                ? 'Promised / Next Due Date: ' + escapeHtml(formatDate(student.next_payment_due_date)) + (student.commitment_notes ? ' (' + escapeHtml(student.commitment_notes) + ')' : '')
-                : student.commitment_notes
-                ? 'Due Condition / Milestone: <strong>' + escapeHtml(student.commitment_notes) + '</strong>'
-                : 'Please clear the remaining fee dues before deadline.'}
+            ${isNoFee
+              ? 'No fee applies to this student.'
+              : isPaidInFull 
+                ? 'All college admission fees are cleared. Thank you.' 
+                : student.next_payment_due_date 
+                  ? 'Promised / Next Due Date: ' + escapeHtml(formatDate(student.next_payment_due_date)) + (student.commitment_notes ? ' (' + escapeHtml(student.commitment_notes) + ')' : '')
+                  : student.commitment_notes
+                  ? 'Due Condition / Milestone: <strong>' + escapeHtml(student.commitment_notes) + '</strong>'
+                  : 'Please clear the remaining fee dues before deadline.'}
           </div>
         </div>
         <div class="dues-text">
-          ${isPaidInFull ? 'Balance: Rs. 0' : 'Dues: ' + escapeHtml(formatCurrency(remainingDues))}
+          ${isNoFee ? 'Balance: Rs 0' : isPaidInFull ? 'Balance: Rs 0' : 'Dues: ' + escapeHtml(formatCurrency(remainingDues))}
         </div>
       </div>
 

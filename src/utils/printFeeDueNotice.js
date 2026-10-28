@@ -1,4 +1,6 @@
 import { formatCurrency, formatDate } from './feeCalculator';
+import { toTitleCase } from './textHelper';
+import { formatPhoneNumber } from './phoneHelper';
 
 function escapeHtml(str) {
   if (str === null || str === undefined) return '';
@@ -26,7 +28,7 @@ export function printFeeDueNotice({ student, noticeData }) {
   const noticeNo = noticeData?.notice_no || `FDN-${student.id.slice(0, 6).toUpperCase()}-${Date.now().toString().slice(-4)}`;
   const remarks = noticeData?.remarks || '';
 
-  const cleanStudentName = escapeHtml((student.student_name || 'Student').trim().replace(/[^a-zA-Z0-9_-]/g, '_'));
+  const cleanStudentName = escapeHtml((toTitleCase(student.student_name) || 'Student').trim().replace(/[^a-zA-Z0-9_-]/g, '_'));
   const pdfTitle = `Fee_Due_Notice_${cleanStudentName}_${noticeNo}`;
 
   const htmlContent = `
@@ -118,7 +120,7 @@ export function printFeeDueNotice({ student, noticeData }) {
     .college-contact {
       font-size: 10px;
       color: #b45309;
-      font-family: monospace;
+      font-variant-numeric: tabular-nums;
       font-weight: 600;
       margin-top: 2px;
     }
@@ -217,7 +219,7 @@ export function printFeeDueNotice({ student, noticeData }) {
       font-size: 14px;
       font-weight: 900;
       color: #b91c1c;
-      font-family: monospace;
+      font-variant-numeric: tabular-nums;
       text-align: right;
     }
     .deadline-box {
@@ -342,8 +344,8 @@ export function printFeeDueNotice({ student, noticeData }) {
       <!-- Salutation -->
       <div class="salutation">
         <div class="salutation-title">To: The Respected Parents / Guardian of Student:</div>
-        <div>Student Name: <strong>${escapeHtml(student.student_name)}</strong> (S/O <strong>${escapeHtml(student.father_name)}</strong>)</div>
-        <div>Contact: <strong>${escapeHtml(student.contact_number || 'N/A')}</strong> | CNIC: <strong>${escapeHtml(student.student_cnic || 'N/A')}</strong></div>
+        <div>Student Name: <strong>${escapeHtml(toTitleCase(student.student_name))}</strong> (S/O <strong>${escapeHtml(toTitleCase(student.father_name))}</strong>)</div>
+        <div>Contact: <strong>${escapeHtml(formatPhoneNumber(student.contact_number))}</strong> | CNIC: <strong>${escapeHtml(student.student_cnic || 'N/A')}</strong></div>
       </div>
 
       <!-- Academic Metadata Grid -->
@@ -377,11 +379,11 @@ export function printFeeDueNotice({ student, noticeData }) {
         <tbody>
           <tr>
             <td>Total Approved Academic / Admission Fee</td>
-            <td style="text-align: right; font-family: monospace; font-weight: bold;">${escapeHtml(formatCurrency(totalFee))}</td>
+            <td style="text-align: right; font-variant-numeric: tabular-nums; font-weight: bold;">${escapeHtml(formatCurrency(totalFee))}</td>
           </tr>
           <tr>
             <td>Total Amount Paid / Deposited to Date</td>
-            <td style="text-align: right; font-family: monospace; color: #16a34a; font-weight: bold;">${escapeHtml(formatCurrency(totalPaid))}</td>
+            <td style="text-align: right; font-variant-numeric: tabular-nums; color: #16a34a; font-weight: bold;">${escapeHtml(formatCurrency(totalPaid))}</td>
           </tr>
           <tr class="amount-highlight">
             <td style="font-weight: 800; font-size: 12px; color: #991b1b;">TOTAL OUTSTANDING BALANCE DUE</td>

@@ -324,11 +324,13 @@ export function AssignBrokerModal({ isOpen, onClose, student, onAssigned }) {
               <div className="text-right">
                 <span className="text-slate-400 text-[10px] uppercase font-bold block">New Status</span>
                 <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                  previewDues === 0
+                  Number(student.total_fee) === 0
+                    ? 'bg-slate-800 text-slate-300 border border-slate-700'
+                    : previewDues === 0
                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
                     : 'bg-amber-950 text-amber-300 border border-amber-500/30'
                 }`}>
-                  {previewDues === 0 ? 'PAID IN FULL' : 'FEE DUE'}
+                  {Number(student.total_fee) === 0 ? 'NO FEE / WAIVED' : previewDues === 0 ? 'PAID IN FULL' : 'FEE DUE'}
                 </span>
               </div>
             </div>

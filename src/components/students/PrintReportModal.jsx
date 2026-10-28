@@ -1,6 +1,8 @@
 import React from 'react';
 import { X, Printer, Download, Users, CreditCard, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/feeCalculator';
+import { toTitleCase } from '../../utils/textHelper';
+import { formatPhoneNumber } from '../../utils/phoneHelper';
 import { CollegeLogo } from '../common/CollegeLogo';
 import { printStudentReport } from '../../utils/printStudentReport';
 import { exportStudentsToCSV } from '../../utils/csvExport';
@@ -142,19 +144,19 @@ export function PrintReportModal({ isOpen, onClose, students = [], brokers = [],
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 py-1">
               <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                 <span className="text-[10px] font-bold uppercase text-slate-500 block">Total Students</span>
-                <span className="font-mono font-black text-sm text-teal-800">{totalStudents}</span>
+                <span className="font-sans tabular-nums font-black text-sm text-teal-800">{totalStudents}</span>
               </div>
               <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                 <span className="text-[10px] font-bold uppercase text-slate-500 block">Total Fee</span>
-                <span className="font-mono font-black text-sm text-slate-900">{formatCurrency(totalFeeSum)}</span>
+                <span className="font-sans tabular-nums font-black text-sm text-slate-900">{formatCurrency(totalFeeSum)}</span>
               </div>
               <div className="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200">
                 <span className="text-[10px] font-bold uppercase text-emerald-800 block">Total Paid</span>
-                <span className="font-mono font-black text-sm text-emerald-700">{formatCurrency(totalPaidSum)}</span>
+                <span className="font-sans tabular-nums font-black text-sm text-emerald-700">{formatCurrency(totalPaidSum)}</span>
               </div>
               <div className="p-2.5 rounded-lg bg-amber-50/60 border border-amber-200">
                 <span className="text-[10px] font-bold uppercase text-amber-800 block">Outstanding Dues</span>
-                <span className={`font-mono font-black text-sm ${totalDuesSum > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                <span className={`font-sans tabular-nums font-black text-sm ${totalDuesSum > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
                   {formatCurrency(totalDuesSum)}
                 </span>
               </div>
@@ -191,17 +193,17 @@ export function PrintReportModal({ isOpen, onClose, students = [], brokers = [],
 
                     return (
                       <tr key={s.id || idx} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
-                        <td className="py-2 px-2 text-center font-mono text-slate-500 text-[10px]">{idx + 1}</td>
-                        <td className="py-2 px-3 font-bold text-slate-900">{s.student_name}</td>
-                        <td className="py-2 px-3 text-slate-700">{s.father_name}</td>
+                        <td className="py-2 px-2 text-center font-sans tabular-nums text-slate-500 text-[10px]">{idx + 1}</td>
+                        <td className="py-2 px-3 font-bold text-slate-900">{toTitleCase(s.student_name)}</td>
+                        <td className="py-2 px-3 text-slate-700">{toTitleCase(s.father_name)}</td>
                         <td className="py-2 px-3 text-slate-700">{classProgram}</td>
-                        <td className="py-2 px-3 text-right font-mono font-medium text-slate-800">
+                        <td className="py-2 px-3 text-right font-sans tabular-nums font-medium text-slate-800">
                           {formatCurrency(s.total_fee)}
                         </td>
-                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">
+                        <td className="py-2 px-3 text-right font-sans tabular-nums font-bold text-emerald-700">
                           {formatCurrency(s.total_paid)}
                         </td>
-                        <td className={`py-2 px-3 text-right font-mono font-extrabold ${
+                        <td className={`py-2 px-3 text-right font-sans tabular-nums font-extrabold ${
                           dues > 0 ? (isOverdue ? 'text-rose-600' : 'text-amber-700') : 'text-emerald-700'
                         }`}>
                           {formatCurrency(dues)}
@@ -215,8 +217,8 @@ export function PrintReportModal({ isOpen, onClose, students = [], brokers = [],
                             {referral}
                           </span>
                         </td>
-                        <td className="py-2 px-3 font-mono text-slate-800 text-[10px]">
-                          {s.contact_number || '-'}
+                        <td className="py-2 px-3 font-sans tabular-nums text-slate-800 text-[10px]">
+                          {formatPhoneNumber(s.contact_number)}
                         </td>
                       </tr>
                     );
@@ -227,13 +229,13 @@ export function PrintReportModal({ isOpen, onClose, students = [], brokers = [],
                     <td colSpan={4} className="py-3 px-3 text-slate-900 font-black">
                       GRAND TOTAL ({totalStudents} Students)
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-black text-slate-900">
+                    <td className="py-3 px-3 text-right font-sans tabular-nums font-black text-slate-900">
                       {formatCurrency(totalFeeSum)}
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-black text-emerald-700">
+                    <td className="py-3 px-3 text-right font-sans tabular-nums font-black text-emerald-700">
                       {formatCurrency(totalPaidSum)}
                     </td>
-                    <td className={`py-3 px-3 text-right font-mono font-black ${
+                    <td className={`py-3 px-3 text-right font-sans tabular-nums font-black ${
                       totalDuesSum > 0 ? 'text-amber-800' : 'text-emerald-700'
                     }`}>
                       {formatCurrency(totalDuesSum)}

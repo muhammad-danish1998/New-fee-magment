@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
-import { calculateTotalPaid, calculateDues, calculateFeeStatus } from '../utils/feeCalculator';
+import { calculateTotalPaid, calculateDues, calculateFeeStatus, toTitleCase } from '../utils/feeCalculator';
 import { isValidCNIC, formatCNIC } from '../utils/cnicHelper';
+import { getNextReceiptNo } from './paymentService';
 
 /**
  * Check if a student with the given CNIC already exists in the database
@@ -120,6 +121,9 @@ export async function getStudents({ search = '', admissionType = '', admissionSe
 
     // Apply fee status filter on computed values if provided
     if (feeStatus && feeStatus !== 'All') {
+      if (feeStatus.toLowerCase() === 'no due date' || feeStatus.toLowerCase() === 'no_due_date') {
+        return processedStudents.filter(s => (Number(s.dues) || 0) > 0 && (!s.next_payment_due_date || !String(s.next_payment_due_date).trim()));
+      }
       return processedStudents.filter(s => s.fee_status.toLowerCase() === feeStatus.toLowerCase());
     }
 
@@ -195,8 +199,8 @@ export async function getStudentById(id) {
 export async function createStudent(studentData, initialPayment = null) {
   try {
     // 0. Strict Validation of All Required Fields
-    const trimmedName = (studentData.student_name || '').trim();
-    const trimmedFatherName = (studentData.father_name || '').trim();
+    const trimmedName = toTitleCase(studentData.student_name);
+    const trimmedFatherName = toTitleCase(studentData.father_name);
     const gender = (studentData.gender || '').trim();
     const rawCnic = (studentData.student_cnic || '').trim();
     const formattedCnic = formatCNIC(rawCnic);
@@ -223,6 +227,18 @@ export async function createStudent(studentData, initialPayment = null) {
       throw new Error('Total Fee is required and must be a non-negative amount.');
     }
 
+    const initialPaymentAmount = initialPayment && initialPayment.amount !== '' && initialPayment.amount !== null && initialPayment.amount !== undefined
+      ? Number(initialPayment.amount)
+      : 0;
+
+    if (isNaN(initialPaymentAmount) || initialPaymentAmount < 0) {
+      throw new Error('Initial payment must be a non-negative amount.');
+    }
+
+    if (initialPaymentAmount > totalFee) {
+      throw new Error('Initial payment cannot be more than the total fee.');
+    }
+
     // Check duplicate student CNIC
     const duplicate = await checkDuplicateStudentCnic(formattedCnic);
     if (duplicate) {
@@ -233,6 +249,18 @@ export async function createStudent(studentData, initialPayment = null) {
 
     // 1. Insert student record
     const initialDues = Math.max(0, totalFee - (Number(initialPayment?.amount) || 0));
+
+    if (initialDues > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const dueDate = (studentData.next_payment_due_date || '').trim();
+      if (!dueDate) {
+        throw new Error('A payment due date is required when there are remaining dues.');
+      }
+      if (dueDate < today) {
+        throw new Error('Payment due date cannot be in the past.');
+      }
+    }
+
     const hasInitialCommitment = initialDues > 0 && (studentData.next_payment_due_date || studentData.commitment_notes);
 
     const admissionSource = studentData.admission_source || 'Direct';
@@ -298,6 +326,7 @@ export async function createStudent(studentData, initialPayment = null) {
 
     // 2. If initial payment provided and > 0, record payment transaction
     if (initialPayment && Number(initialPayment.amount) > 0) {
+      const receiptNo = await getNextReceiptNo();
       const { error: paymentError } = await supabase
         .from('payments')
         .insert([{
@@ -305,8 +334,8 @@ export async function createStudent(studentData, initialPayment = null) {
           amount: Number(initialPayment.amount),
           payment_date: initialPayment.payment_date || new Date().toISOString().split('T')[0],
           payment_method: initialPayment.payment_method || 'Cash',
-          receipt_no: `RCP-${Date.now().toString().slice(-6)}`,
-          notes: 'Initial admission fee payment'
+          receipt_no: receiptNo,
+          notes: initialPayment.notes ? String(initialPayment.notes).trim().slice(0, 500) : 'Initial admission fee payment'
         }]);
 
       if (paymentError) {

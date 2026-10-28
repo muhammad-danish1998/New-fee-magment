@@ -4,7 +4,7 @@ import { UserPlus, User, BookOpen, DollarSign, Calendar, AlertCircle, CheckCircl
 import { createStudent, checkDuplicateStudentCnic, checkArchiveDuplicate } from '../services/studentService';
 import { getAdmissionConfig } from '../services/configService';
 import { getActiveBrokers } from '../services/brokerService';
-import { calculateDues, formatCurrency } from '../utils/feeCalculator';
+import { calculateDues, formatCurrency, toTitleCase } from '../utils/feeCalculator';
 import { formatCNIC, isValidCNIC } from '../utils/cnicHelper';
 import { isValidPakistaniPhone, normalizePakistaniPhone, formatPakistaniPhoneInput } from '../utils/phoneHelper';
 
@@ -12,7 +12,7 @@ export function EnrollStudentPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedSession = searchParams.get('session');
-  const initialSession = (requestedSession === 'Annual II' || requestedSession === 'Annual I') ? requestedSession : 'Annual I';
+  const initialSession = (requestedSession === 'Annual II' || requestedSession === 'Annual I') ? requestedSession : '';
 
   const [config, setConfig] = useState(null);
   const [brokers, setBrokers] = useState([]);
@@ -45,12 +45,13 @@ export function EnrollStudentPage() {
     contact_number: '',
     reference: '',
     admission_session: initialSession,
-    admission_type: 'Regular',
+    admission_type: '',
     program_group: '',
     academic_class: '',
     total_fee: '',
     initial_payment: '',
     payment_method: 'Cash',
+    bank_reference: '',
     next_payment_due_date: ''
   });
 
@@ -71,20 +72,6 @@ export function EnrollStudentPage() {
         ]);
         setConfig(configData);
         setBrokers(brokersData || []);
-
-        if (brokersData && brokersData.length > 0) {
-          setSelectedBrokerId(brokersData[0].id);
-          setBrokerAgreedAmount(String(brokersData[0].current_agreed_amount || ''));
-        }
-
-        // Set initial default selections based on 'Regular'
-        const regularPrograms = configData.programGroups['Regular'] || [];
-        const regularClasses = configData.academicClasses['Regular'] || [];
-        setFormData(prev => ({
-          ...prev,
-          program_group: regularPrograms[0] || '',
-          academic_class: regularClasses[0] || ''
-        }));
       } catch (err) {
         console.error('Failed to load admission config or brokers:', err);
       } finally {
@@ -96,17 +83,23 @@ export function EnrollStudentPage() {
 
   const handleBrokerChange = (brokerId) => {
     setSelectedBrokerId(brokerId);
+    if (!brokerId) {
+      setBrokerAgreedAmount('');
+      return;
+    }
     const found = brokers.find(b => b.id === brokerId);
     if (found) {
-      const agreed = String(found.current_agreed_amount || '');
+      const isPartner = Boolean(found.is_partner);
+      const agreed = isPartner ? '0' : String(found.current_agreed_amount || '');
       setBrokerAgreedAmount(agreed);
       // Auto-set total_fee to agreed broker amount by default
       setFormData(prev => ({
         ...prev,
-        total_fee: agreed || prev.total_fee,
-        contact_number: found.phone ? formatPakistaniPhoneInput(found.phone) : prev.contact_number
+        total_fee: agreed !== '' ? agreed : prev.total_fee,
+        contact_number: found.phone ? formatPakistaniPhoneInput(found.phone) : prev.contact_number,
+        reference: (!prev.reference || prev.reference === 'Direct Admission' || prev.reference === 'Direct') ? found.name : prev.reference
       }));
-      setFieldErrors(prev => ({ ...prev, contact_number: undefined, total_fee: undefined }));
+      setFieldErrors(prev => ({ ...prev, contact_number: undefined, total_fee: undefined, broker_id: undefined }));
     }
   };
 
@@ -123,20 +116,13 @@ export function EnrollStudentPage() {
   const handleAdmissionSourceToggle = (source) => {
     setAdmissionSource(source);
     if (source === 'Referral') {
-      const targetBrokerId = selectedBrokerId || (brokers[0] ? brokers[0].id : '');
-      if (targetBrokerId) {
-        setSelectedBrokerId(targetBrokerId);
-        const found = brokers.find(b => b.id === targetBrokerId);
-        if (found) {
-          const agreed = String(found.current_agreed_amount || '');
-          setBrokerAgreedAmount(agreed);
-          // Auto-set total fee to agreed broker amount by default
-          setFormData(prev => ({
-            ...prev,
-            total_fee: agreed || prev.total_fee,
-            contact_number: found.phone ? formatPakistaniPhoneInput(found.phone) : prev.contact_number
-          }));
-          setFieldErrors(prev => ({ ...prev, contact_number: undefined, total_fee: undefined }));
+      if (selectedBrokerId) {
+        handleBrokerChange(selectedBrokerId);
+      } else {
+        setSelectedBrokerId('');
+        setBrokerAgreedAmount('');
+        if (!formData.reference || formData.reference === 'Direct' || formData.reference === 'Direct Admission') {
+          setFormData(prev => ({ ...prev, reference: '' }));
         }
       }
     } else if (source === 'Direct') {
@@ -149,20 +135,26 @@ export function EnrollStudentPage() {
           setFormData(prev => ({ ...prev, contact_number: '' }));
         }
       }
+      if (found && formData.reference === found.name) {
+        setFormData(prev => ({ ...prev, reference: '' }));
+      }
     }
   };
 
   // Handle dependent dropdown updates when admission type changes
   const handleAdmissionTypeChange = (newType) => {
     if (!config) return;
-    const programs = config.programGroups[newType] || [];
-    const classes = config.academicClasses[newType] || [];
-
     setFormData(prev => ({
       ...prev,
       admission_type: newType,
-      program_group: programs[0] || '',
-      academic_class: classes[0] || ''
+      program_group: '',
+      academic_class: ''
+    }));
+    setFieldErrors(prev => ({
+      ...prev,
+      admission_type: undefined,
+      program_group: undefined,
+      academic_class: undefined
     }));
   };
 
@@ -233,14 +225,15 @@ export function EnrollStudentPage() {
   const totalFeeNum = Number(formData.total_fee) || 0;
   const initialPaidNum = Number(formData.initial_payment) || 0;
   const duesNum = calculateDues(totalFeeNum, initialPaidNum);
+  const isPaymentExceeded = formData.initial_payment !== '' && initialPaidNum > totalFeeNum;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
 
     // 1. Strict Validation of All 9 Required Fields
-    const trimmedName = formData.student_name.trim();
-    const trimmedFatherName = formData.father_name.trim();
+    const trimmedName = toTitleCase(formData.student_name);
+    const trimmedFatherName = toTitleCase(formData.father_name);
     const gender = formData.gender?.trim();
     const trimmedCnic = formData.student_cnic.trim();
     const session = formData.admission_session?.trim();
@@ -293,7 +286,7 @@ export function EnrollStudentPage() {
       errors.initial_payment = 'Initial payment amount cannot be negative.';
     }
     if (initialPaidNum > totalFeeNum) {
-      errors.initial_payment = 'Initial payment cannot exceed Total Fee.';
+      errors.initial_payment = 'Initial payment cannot be more than the total fee.';
     }
 
     // Task 4.b: If the remaining dues are greater than 0, a due/promised date is required.
@@ -340,8 +333,17 @@ export function EnrollStudentPage() {
       // Referral validation
       if (admissionSource === 'Referral') {
         if (!selectedBrokerId) {
-          setFormError('Please select a Referral Broker / Partner.');
+          setFieldErrors(prev => ({ ...prev, broker_id: 'Please select a Referral Broker / Partner.' }));
+          setFormError('Please select a Referral Broker / Partner before saving.');
           return;
+        }
+      }
+
+      let finalReference = formData.reference.trim();
+      if (admissionSource === 'Referral') {
+        if (!finalReference || finalReference === 'Direct Admission' || finalReference === 'Direct') {
+          const foundBroker = brokers.find(b => b.id === selectedBrokerId);
+          finalReference = foundBroker?.name || '';
         }
       }
 
@@ -354,7 +356,7 @@ export function EnrollStudentPage() {
           father_cnic: formData.father_cnic.trim() ? formatCNIC(formData.father_cnic) : null,
           gender: gender,
           contact_number: normalizePakistaniPhone(trimmedPhone),
-          reference: formData.reference.trim() || null,
+          reference: finalReference || null,
           admission_source: admissionSource,
           broker_id: admissionSource === 'Referral' ? selectedBrokerId : null,
           broker_agreed_amount: admissionSource === 'Referral' ? (Number(brokerAgreedAmount) || 0) : null,
@@ -371,12 +373,17 @@ export function EnrollStudentPage() {
           ? {
               amount: initialPaidNum,
               payment_date: new Date().toISOString().split('T')[0],
-              payment_method: formData.payment_method
+              payment_method: formData.payment_method,
+              notes: formData.payment_method === 'Bank' && formData.bank_reference.trim()
+                ? `Ref/Txn: ${formData.bank_reference.trim()}`
+                : 'Initial enrollment payment'
             }
           : null
       );
 
-      // Successfully saved - navigate directly to Student Profile
+      // Successfully saved - scroll to top and navigate directly to Student Profile
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.querySelector('main')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       navigate(`/students/${student.id}`, { state: { justEnrolled: true } });
     } catch (err) {
       console.error('Enrollment error:', err);
@@ -389,6 +396,9 @@ export function EnrollStudentPage() {
   const currentProgramList = config?.programGroups?.[formData.admission_type] || [];
   const currentClassList = config?.academicClasses?.[formData.admission_type] || [];
   const isCnicValidFormat = isValidCNIC(formData.student_cnic);
+  const selectedBroker = brokers.find((b) => b.id === selectedBrokerId);
+  const isSelectedBrokerPartner = Boolean(selectedBroker?.is_partner);
+  const isBrokerMissing = admissionSource === 'Referral' && !selectedBrokerId;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -528,14 +538,14 @@ export function EnrollStudentPage() {
                     required={admissionSource === 'Referral'}
                     value={selectedBrokerId}
                     onChange={(e) => handleBrokerChange(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-500 font-semibold"
+                    className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border text-sm focus:outline-none font-semibold ${
+                      !selectedBrokerId ? 'border-amber-500/60 text-slate-400' : 'border-slate-700 text-white focus:border-teal-500'
+                    }`}
                   >
-                    {brokers.length === 0 && (
-                      <option value="">No brokers registered yet</option>
-                    )}
+                    <option value="" disabled>Select broker / partner...</option>
                     {brokers.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {b.name} {b.phone ? `(${b.phone})` : ''} {b.current_agreed_amount ? `• Standard: Rs. ${Number(b.current_agreed_amount).toLocaleString()}` : ''}
+                        {b.name} {b.is_partner ? '(Partner - No Commission)' : ''} {b.phone ? `(${b.phone})` : ''} {!b.is_partner && b.current_agreed_amount ? `• Standard: Rs. ${Number(b.current_agreed_amount).toLocaleString()}` : ''}
                       </option>
                     ))}
                   </select>
@@ -546,9 +556,14 @@ export function EnrollStudentPage() {
                         Click here to add your actual brokers
                       </Link>
                     </span>
+                  ) : !selectedBrokerId ? (
+                    <span className="text-[11px] text-amber-400 font-medium mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 shrink-0" />
+                      <span>Please select a broker to continue.</span>
+                    </span>
                   ) : (
                     <span className="text-[10px] text-slate-400 mt-1 block">
-                      Select the partner who referred this student
+                      Referred by: {selectedBroker?.name} {isSelectedBrokerPartner ? '(Partner - Rs 0 rate)' : ''}
                     </span>
                   )}
                 </div>
@@ -563,15 +578,28 @@ export function EnrollStudentPage() {
                       type="number"
                       min="0"
                       required={admissionSource === 'Referral'}
-                      placeholder="e.g. 3000"
+                      readOnly={isSelectedBrokerPartner}
+                      placeholder={isSelectedBrokerPartner ? '0' : 'e.g. 3000'}
                       value={brokerAgreedAmount}
-                      onChange={(e) => handleBrokerAgreedAmountChange(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-teal-500/50 text-teal-300 font-mono text-base font-bold focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
+                      onChange={(e) => {
+                        if (!isSelectedBrokerPartner) {
+                          handleBrokerAgreedAmountChange(e.target.value);
+                        }
+                      }}
+                      className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border font-sans tabular-nums text-base font-bold focus:outline-none ${
+                        isSelectedBrokerPartner
+                          ? 'border-slate-700 bg-slate-950/70 text-slate-400 cursor-not-allowed'
+                          : 'border-teal-500/50 text-teal-300 focus:border-teal-400 focus:ring-1 focus:ring-teal-400'
+                      }`}
                     />
                   </div>
                   <span className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
                     <Info className="w-3 h-3 text-teal-400 shrink-0 inline" />
-                    <span>Locked snapshot for this student; immune to future broker rate changes.</span>
+                    <span>
+                      {isSelectedBrokerPartner
+                        ? 'Partner broker (no commission) — rate is fixed at Rs 0.'
+                        : 'Locked snapshot for this student; immune to future broker rate changes.'}
+                    </span>
                   </span>
                 </div>
               </div>
@@ -761,7 +789,11 @@ export function EnrollStudentPage() {
               </label>
               <input
                 type="text"
-                placeholder="e.g. Direct / Sir Aslam / Broker"
+                placeholder={
+                  admissionSource === 'Referral'
+                    ? (selectedBroker ? `e.g. ${selectedBroker.name}` : 'e.g. Referring broker name or remarks')
+                    : 'e.g. Direct / Sir Aslam / Broker'
+                }
                 value={formData.reference}
                 onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
                 className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-teal-500"
@@ -786,12 +818,24 @@ export function EnrollStudentPage() {
               <select
                 required
                 value={formData.admission_session}
-                onChange={(e) => setFormData({ ...formData, admission_session: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-500 font-medium"
+                onChange={(e) => {
+                  setFormData({ ...formData, admission_session: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, admission_session: undefined }));
+                }}
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
+                  fieldErrors.admission_session ? 'border-rose-500' : 'border-slate-700'
+                } ${!formData.admission_session ? 'text-slate-400' : 'text-white'} text-sm focus:outline-none focus:border-teal-500 font-medium`}
               >
+                <option value="" disabled>Select admission session...</option>
                 <option value="Annual I">Annual I</option>
                 <option value="Annual II">Annual II</option>
               </select>
+              {fieldErrors.admission_session && (
+                <p className="text-rose-400 text-xs font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.admission_session}</span>
+                </p>
+              )}
             </div>
 
             {/* Admission Type (Triggers dependent program and class updates) */}
@@ -803,12 +847,21 @@ export function EnrollStudentPage() {
                 required
                 value={formData.admission_type}
                 onChange={(e) => handleAdmissionTypeChange(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-teal-300 font-semibold text-sm focus:outline-none focus:border-teal-500"
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
+                  fieldErrors.admission_type ? 'border-rose-500' : 'border-slate-700'
+                } ${!formData.admission_type ? 'text-slate-400' : 'text-teal-300'} font-semibold text-sm focus:outline-none focus:border-teal-500`}
               >
+                <option value="" disabled>Select admission type...</option>
                 <option value="Regular">Regular</option>
                 <option value="Private">Private</option>
                 <option value="Combine (Gap)">Combine (Gap)</option>
               </select>
+              {fieldErrors.admission_type && (
+                <p className="text-rose-400 text-xs font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.admission_type}</span>
+                </p>
+              )}
             </div>
 
             {/* Program / Group (Dependent on Admission Type) */}
@@ -818,17 +871,33 @@ export function EnrollStudentPage() {
               </label>
               <select
                 required
+                disabled={!formData.admission_type}
                 value={formData.program_group}
-                onChange={(e) => setFormData({ ...formData, program_group: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-500"
+                onChange={(e) => {
+                  setFormData({ ...formData, program_group: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, program_group: undefined }));
+                }}
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
+                  fieldErrors.program_group ? 'border-rose-500' : 'border-slate-700'
+                } ${!formData.program_group ? 'text-slate-400' : 'text-white'} text-sm focus:outline-none focus:border-teal-500 disabled:opacity-50`}
               >
+                <option value="" disabled>
+                  {formData.admission_type ? 'Select program / group...' : 'Select admission type first...'}
+                </option>
                 {currentProgramList.map((p, idx) => (
                   <option key={idx} value={p}>{p}</option>
                 ))}
               </select>
-              <span className="text-[10px] text-slate-400 mt-1 block">
-                Filtered automatically for {formData.admission_type}
-              </span>
+              {fieldErrors.program_group ? (
+                <p className="text-rose-400 text-xs font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.program_group}</span>
+                </p>
+              ) : (
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  {formData.admission_type ? `Filtered automatically for ${formData.admission_type}` : 'Choose admission type above to see options'}
+                </span>
+              )}
             </div>
 
             {/* Academic Class (Dependent on Admission Type) */}
@@ -838,17 +907,33 @@ export function EnrollStudentPage() {
               </label>
               <select
                 required
+                disabled={!formData.admission_type}
                 value={formData.academic_class}
-                onChange={(e) => setFormData({ ...formData, academic_class: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-500 font-semibold"
+                onChange={(e) => {
+                  setFormData({ ...formData, academic_class: e.target.value });
+                  setFieldErrors((prev) => ({ ...prev, academic_class: undefined }));
+                }}
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border ${
+                  fieldErrors.academic_class ? 'border-rose-500' : 'border-slate-700'
+                } ${!formData.academic_class ? 'text-slate-400' : 'text-white'} text-sm focus:outline-none focus:border-teal-500 font-semibold disabled:opacity-50`}
               >
+                <option value="" disabled>
+                  {formData.admission_type ? 'Select academic class...' : 'Select admission type first...'}
+                </option>
                 {currentClassList.map((c, idx) => (
                   <option key={idx} value={c}>{c}</option>
                 ))}
               </select>
-              <span className="text-[10px] text-slate-400 mt-1 block">
-                Applicable classes for {formData.admission_type}
-              </span>
+              {fieldErrors.academic_class ? (
+                <p className="text-rose-400 text-xs font-semibold mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.academic_class}</span>
+                </p>
+              ) : (
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  {formData.admission_type ? `Applicable classes for ${formData.admission_type}` : 'Choose admission type above to see options'}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -883,13 +968,18 @@ export function EnrollStudentPage() {
                 required
                 placeholder="e.g. 45000"
                 value={formData.total_fee}
-                onChange={(e) => setFormData({ ...formData, total_fee: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 font-mono text-base font-bold focus:outline-none focus:border-teal-500"
+                onChange={(e) => {
+                  setFormData({ ...formData, total_fee: e.target.value });
+                  if (fieldErrors.total_fee || fieldErrors.initial_payment) {
+                    setFieldErrors(prev => ({ ...prev, total_fee: undefined, initial_payment: undefined }));
+                  }
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 font-sans tabular-nums text-base font-bold focus:outline-none focus:border-teal-500"
               />
               {admissionSource === 'Referral' && brokerAgreedAmount && (
                 <span className="text-[10px] text-teal-400 mt-1 flex items-center gap-1 font-medium">
                   <Handshake className="w-3 h-3 shrink-0 inline" />
-                  <span>Auto-defaulted to Agreed Broker Amount (Rs. {Number(brokerAgreedAmount).toLocaleString()}). You can adjust if needed.</span>
+                  <span>Auto-defaulted to Agreed Broker Amount (Rs {Number(brokerAgreedAmount).toLocaleString('en-PK')}). You can adjust if needed.</span>
                 </span>
               )}
             </div>
@@ -902,29 +992,64 @@ export function EnrollStudentPage() {
               <input
                 type="number"
                 min="0"
-                max={totalFeeNum || undefined}
                 placeholder="e.g. 10000 (or leave 0 for unpaid)"
                 value={formData.initial_payment}
-                onChange={(e) => setFormData({ ...formData, initial_payment: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-emerald-400 placeholder-slate-500 font-mono text-base font-bold focus:outline-none focus:border-teal-500"
+                onChange={(e) => {
+                  setFormData({ ...formData, initial_payment: e.target.value });
+                  if (fieldErrors.initial_payment) {
+                    setFieldErrors(prev => ({ ...prev, initial_payment: undefined }));
+                  }
+                }}
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border font-sans tabular-nums text-base font-bold focus:outline-none placeholder-slate-500 ${
+                  isPaymentExceeded || fieldErrors.initial_payment
+                    ? 'border-rose-500 text-rose-400 focus:border-rose-400'
+                    : 'border-slate-700 text-emerald-400 focus:border-teal-500'
+                }`}
               />
+              {(isPaymentExceeded || fieldErrors.initial_payment) && (
+                <p className="text-rose-400 text-xs font-semibold mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    {isPaymentExceeded
+                      ? 'Initial payment cannot be more than the total fee.'
+                      : fieldErrors.initial_payment}
+                  </span>
+                </p>
+              )}
             </div>
 
             {/* Payment Method */}
             {initialPaidNum > 0 && (
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                  Initial Payment Method
-                </label>
-                <select
-                  value={formData.payment_method}
-                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-500"
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="Bank">Bank Transfer</option>
-                  <option value="Other">Other</option>
-                </select>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                    Initial Payment Method
+                  </label>
+                  <select
+                    value={formData.payment_method}
+                    onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-500"
+                  >
+                    <option value="Cash">Cash</option>
+                    <option value="Bank">Bank Transfer</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {formData.payment_method === 'Bank' && (
+                  <div className="p-3 rounded-xl bg-slate-950 border border-teal-500/40 animate-fadeIn space-y-1">
+                    <label className="block text-xs font-semibold text-teal-300">
+                      Reference / Transaction no. <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bank_reference}
+                      onChange={(e) => setFormData({ ...formData, bank_reference: e.target.value })}
+                      placeholder="e.g. TXN-948214, Cheque #, or Transfer ID"
+                      className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-400 text-xs font-mono"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -935,9 +1060,9 @@ export function EnrollStudentPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                 <label className="text-xs font-bold text-amber-300 flex items-center gap-1.5 uppercase tracking-wide">
                   <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span>Remaining Fee Payment Schedule / Condition (Optional)</span>
+                  <span>Remaining Fee Payment Schedule &amp; Due Date <span className="text-rose-400">*</span></span>
                 </label>
-                <span className="text-[10px] text-slate-400">Select how the student will pay</span>
+                <span className="text-[10px] text-slate-400">Payment due date is required for outstanding dues</span>
               </div>
 
               {/* Toggle: Milestone Stage vs Calendar Date vs Both */}
@@ -945,39 +1070,39 @@ export function EnrollStudentPage() {
                 <button
                   type="button"
                   onClick={() => setCommitmentType('stage')}
-                  className={`py-2 px-2.5 rounded-xl font-semibold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2.5 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                     commitmentType === 'stage'
-                      ? 'bg-teal-500/20 text-teal-300 border-teal-500/60 shadow-sm'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                      ? 'bg-teal-600 text-white border-teal-400 shadow-md'
+                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
                   }`}
                 >
-                  <Award className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <Award className="w-3.5 h-3.5 text-teal-300 shrink-0" />
                   <span className="truncate">Stage Milestone</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCommitmentType('date')}
-                  className={`py-2 px-2.5 rounded-xl font-semibold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2.5 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                     commitmentType === 'date'
-                      ? 'bg-teal-500/20 text-teal-300 border-teal-500/60 shadow-sm'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                      ? 'bg-teal-600 text-white border-teal-400 shadow-md'
+                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
                   }`}
                 >
-                  <Calendar className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <Calendar className="w-3.5 h-3.5 text-teal-300 shrink-0" />
                   <span className="truncate">Calendar Date</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setCommitmentType('both')}
-                  className={`py-2 px-2.5 rounded-xl font-semibold border transition-all text-center flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2.5 rounded-xl font-bold border transition-all text-center flex items-center justify-center gap-1.5 ${
                     commitmentType === 'both'
-                      ? 'bg-teal-500/20 text-teal-300 border-teal-500/60 shadow-sm'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                      ? 'bg-teal-600 text-white border-teal-400 shadow-md'
+                      : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
                   }`}
                 >
-                  <Clock className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <Clock className="w-3.5 h-3.5 text-teal-300 shrink-0" />
                   <span className="truncate">Date &amp; Stage</span>
                 </button>
               </div>
@@ -994,24 +1119,31 @@ export function EnrollStudentPage() {
                       { title: 'On Examination in Verification', desc: 'When Examination is submitted' },
                       { title: 'On Admit Card Issuance', desc: 'When Admit Card is ready' },
                       { title: 'On Class Commencement', desc: 'When regular classes start' },
-                    ].map((preset) => (
-                      <button
-                        key={preset.title}
-                        type="button"
-                        onClick={() => {
-                          setSelectedStagePreset(preset.title);
-                          setCustomStageNote('');
-                        }}
-                        className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                          selectedStagePreset === preset.title && !customStageNote
-                            ? 'bg-teal-950/60 text-teal-200 border-teal-500/60 ring-1 ring-teal-500/40'
-                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800/80'
-                        }`}
-                      >
-                        <div className="font-semibold">{preset.title}</div>
-                        <div className="text-[10px] text-slate-400">{preset.desc}</div>
-                      </button>
-                    ))}
+                    ].map((preset) => {
+                      const isSelected = selectedStagePreset === preset.title && !customStageNote;
+                      return (
+                        <button
+                          key={preset.title}
+                          type="button"
+                          onClick={() => {
+                            setSelectedStagePreset(preset.title);
+                            setCustomStageNote('');
+                          }}
+                          className={`p-3 rounded-xl border text-left text-xs transition-all ${
+                            isSelected
+                              ? 'bg-teal-900/90 border-teal-400 ring-2 ring-teal-400/50 shadow-md'
+                              : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800/80 hover:text-white'
+                          }`}
+                        >
+                          <div className={`font-bold tracking-wide text-xs ${isSelected ? 'text-white' : 'text-slate-200'}`}>
+                            {preset.title}
+                          </div>
+                          <div className={`text-[10px] mt-0.5 ${isSelected ? 'text-teal-200 font-medium' : 'text-slate-400'}`}>
+                            {preset.desc}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Custom Stage Note */}
@@ -1071,21 +1203,35 @@ export function EnrollStudentPage() {
             <div className="flex items-center gap-6">
               <div className="text-right">
                 <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-semibold">Remaining Dues</span>
-                <span className={`text-xl font-extrabold font-mono ${duesNum > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                  {formatCurrency(duesNum)}
+                <span className={`text-xl font-extrabold font-sans tabular-nums ${
+                  isPaymentExceeded
+                    ? 'text-rose-400'
+                    : duesNum > 0
+                    ? 'text-amber-400'
+                    : 'text-emerald-400'
+                }`}>
+                  {isPaymentExceeded ? 'Exceeds Total Fee' : formatCurrency(duesNum)}
                 </span>
               </div>
 
               <div className="text-right">
                 <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-semibold">Initial Status</span>
                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                  duesNum === 0 && totalFeeNum > 0
+                  isPaymentExceeded
+                    ? 'bg-rose-950 text-rose-300 border border-rose-500/30'
+                    : duesNum === 0 && totalFeeNum > 0
                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30'
                     : initialPaidNum > 0
                     ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
                     : 'bg-orange-950 text-orange-300 border border-orange-500/30'
                 }`}>
-                  {duesNum === 0 && totalFeeNum > 0 ? 'PAID IN FULL' : initialPaidNum > 0 ? 'DUE' : 'UNPAID'}
+                  {isPaymentExceeded
+                    ? 'EXCEEDS TOTAL FEE'
+                    : duesNum === 0 && totalFeeNum > 0
+                    ? 'PAID IN FULL'
+                    : initialPaidNum > 0
+                    ? 'DUE'
+                    : 'UNPAID'}
                 </span>
               </div>
             </div>
@@ -1104,7 +1250,7 @@ export function EnrollStudentPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting || !!cnicDuplicateError}
+            disabled={isSubmitting || !!cnicDuplicateError || isPaymentExceeded || isBrokerMissing}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-bold shadow-lg shadow-teal-600/30 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <UserPlus className="w-4 h-4" />

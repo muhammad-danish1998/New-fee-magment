@@ -60,12 +60,13 @@ export function generateBrokerToken() {
 /**
  * Add a new broker
  */
-export async function createBroker({ name, phone = '', currentAgreedAmount = 0, notes = '', securityPin = '1234' }) {
+export async function createBroker({ name, phone = '', currentAgreedAmount = 0, notes = '', securityPin = '1234', isPartner = false }) {
   try {
     const trimmedName = (name || '').trim();
     if (!trimmedName) throw new Error('Broker Name is required.');
 
-    const amount = Number(currentAgreedAmount) >= 0 ? Number(currentAgreedAmount) : 0;
+    const isPartnerBool = Boolean(isPartner);
+    const amount = isPartnerBool ? 0 : (Number(currentAgreedAmount) >= 0 ? Number(currentAgreedAmount) : 0);
     const token = generateBrokerToken();
     const pin = (securityPin || '1234').trim().slice(0, 8);
 
@@ -76,6 +77,7 @@ export async function createBroker({ name, phone = '', currentAgreedAmount = 0, 
         phone: phone ? phone.trim() : null,
         current_agreed_amount: amount,
         is_active: true,
+        is_partner: isPartnerBool,
         access_token: token,
         security_pin: pin,
         is_portal_active: true,
@@ -103,10 +105,16 @@ export async function updateBroker(id, updates) {
       updated_at: new Date().toISOString()
     };
 
+    if (updates.is_partner !== undefined) {
+      payload.is_partner = Boolean(updates.is_partner);
+      if (payload.is_partner && updates.current_agreed_amount === undefined) {
+        payload.current_agreed_amount = 0;
+      }
+    }
     if (updates.name !== undefined) payload.name = updates.name.trim();
     if (updates.phone !== undefined) payload.phone = updates.phone ? updates.phone.trim() : null;
     if (updates.current_agreed_amount !== undefined) {
-      payload.current_agreed_amount = Number(updates.current_agreed_amount) || 0;
+      payload.current_agreed_amount = payload.is_partner ? 0 : (Number(updates.current_agreed_amount) || 0);
     }
     if (updates.is_active !== undefined) payload.is_active = Boolean(updates.is_active);
     if (updates.is_portal_active !== undefined) payload.is_portal_active = Boolean(updates.is_portal_active);

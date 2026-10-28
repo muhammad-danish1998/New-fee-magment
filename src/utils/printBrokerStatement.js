@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from './feeCalculator';
+import { toTitleCase } from './textHelper';
 
 const collegeLogoSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" style="width:100%; height:100%; display:block;">
@@ -61,8 +62,8 @@ export function printBrokerStatement({ broker, students = [], sessionFilter = 'A
       <tr>
         <td style="text-align: center; font-weight: 700; color: #475569; width: 30px;">${idx + 1}</td>
         <td>
-          <div style="font-weight: 700; color: #0f172a; font-size: 11px; line-height: 1.2;">${escapeHtml(s.student_name)}</div>
-          <div style="font-size: 9.5px; color: #64748b; margin-top: 1px;">S/O ${escapeHtml(s.father_name)}</div>
+          <div style="font-weight: 700; color: #0f172a; font-size: 11px; line-height: 1.2;">${escapeHtml(toTitleCase(s.student_name))}</div>
+          <div style="font-size: 9.5px; color: #64748b; margin-top: 1px;">S/O ${escapeHtml(toTitleCase(s.father_name))}</div>
         </td>
         <td>
           <div style="font-weight: 600; color: #1e293b; font-size: 10.5px;">${escapeHtml(s.academic_class)}</div>
@@ -73,16 +74,16 @@ export function printBrokerStatement({ broker, students = [], sessionFilter = 'A
             ${escapeHtml(s.admission_session)}
           </span>
         </td>
-        <td style="text-align: center; font-size: 10px; color: #334155; font-family: monospace;">
+        <td style="text-align: center; font-size: 10px; color: #334155; font-variant-numeric: tabular-nums;">
           ${escapeHtml(formatDate(s.created_at))}
         </td>
-        <td style="text-align: right; font-family: monospace; font-weight: 700; color: #6b21a8; font-size: 11px;">
+        <td style="text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: #6b21a8; font-size: 11px;">
           ${escapeHtml(formatCurrency(studentFee))}
         </td>
-        <td style="text-align: right; font-family: monospace; font-weight: 700; color: #047857; font-size: 11px;">
+        <td style="text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: #047857; font-size: 11px;">
           ${escapeHtml(formatCurrency(studentPaid))}
         </td>
-        <td style="text-align: right; font-family: monospace; font-weight: 700; color: ${isPaid ? '#047857' : '#b45309'}; font-size: 11px;">
+        <td style="text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; color: ${isPaid ? '#047857' : '#b45309'}; font-size: 11px;">
           ${isPaid ? 'PAID' : escapeHtml(formatCurrency(studentDues))}
         </td>
         <td>

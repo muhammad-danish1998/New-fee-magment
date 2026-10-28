@@ -23,6 +23,27 @@ export function ManageProgressModal({ isOpen, onClose, student, onProgressUpdate
 
   const toggleStep = (stepKey, dateKey) => {
     const isNowChecked = !stepsState[stepKey];
+    setError('');
+
+    const stepIndex = PROGRESS_STEPS.findIndex(s => s.key === stepKey);
+    const step = PROGRESS_STEPS[stepIndex];
+
+    if (isNowChecked) {
+      // Require previous steps first: a step can only be ticked if all earlier steps are done
+      const earlierIncomplete = PROGRESS_STEPS.slice(0, stepIndex).find(s => !stepsState[s.key]);
+      if (earlierIncomplete) {
+        setError(`Complete Step ${earlierIncomplete.id} first.`);
+        return;
+      }
+    } else {
+      // Block unticking if any later step is still completed
+      const laterCompleted = PROGRESS_STEPS.slice(stepIndex + 1).find(s => !!stepsState[s.key]);
+      if (laterCompleted) {
+        setError(`Cannot untick Step ${step.id} while Step ${laterCompleted.id} is completed. Untick later steps first.`);
+        return;
+      }
+    }
+
     setStepsState(prev => ({
       ...prev,
       [stepKey]: isNowChecked,
@@ -35,6 +56,18 @@ export function ManageProgressModal({ isOpen, onClose, student, onProgressUpdate
   const handleSave = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Verify sequential consistency before saving
+    for (let i = 0; i < PROGRESS_STEPS.length; i++) {
+      if (stepsState[PROGRESS_STEPS[i].key]) {
+        for (let j = 0; j < i; j++) {
+          if (!stepsState[PROGRESS_STEPS[j].key]) {
+            setError(`Complete Step ${PROGRESS_STEPS[j].id} first.`);
+            return;
+          }
+        }
+      }
+    }
 
     try {
       setIsSubmitting(true);

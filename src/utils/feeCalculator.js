@@ -34,6 +34,10 @@ export function calculateFeeStatus(totalFee = 0, totalPaid = 0, dueDate = null) 
   const paid = Number(totalPaid) || 0;
   const dues = calculateDues(fee, paid);
 
+  if (fee <= 0) {
+    return 'NO FEE / WAIVED';
+  }
+
   if (dues <= 0 && fee > 0) {
     return 'PAID IN FULL';
   }
@@ -57,13 +61,20 @@ export function calculateFeeStatus(totalFee = 0, totalPaid = 0, dueDate = null) 
   return 'PAID IN FULL';
 }
 
+export { toTitleCase } from './textHelper';
+
 /**
- * Format currency with PKR format
+ * Format currency with standardized single PKR format: "Rs 1,857,500"
  */
 export function formatCurrency(amount = 0) {
-  const num = Number(amount) || 0;
-  return `Rs. ${num.toLocaleString('en-PK')}`;
+  const num = Math.round(Number(amount)) || 0;
+  return `Rs ${num.toLocaleString('en-PK')}`;
 }
+
+/**
+ * Shared alias so formatMoney and formatCurrency are identical everywhere
+ */
+export const formatMoney = formatCurrency;
 
 /**
  * Format standard date
@@ -98,9 +109,23 @@ export function getFeeStatus(student) {
       status: 'PAID IN FULL',
       badge: 'PAID IN FULL',
       isPaid: true,
+      isNoFee: false,
       isOverdue: false,
       daysOverdue: 0,
       label: 'Paid in Full'
+    };
+  }
+
+  const fee = Number(student.total_fee) || 0;
+  if (fee <= 0) {
+    return {
+      status: 'NO FEE / WAIVED',
+      badge: 'NO FEE / WAIVED',
+      isPaid: false,
+      isNoFee: true,
+      isOverdue: false,
+      daysOverdue: 0,
+      label: 'NO FEE / WAIVED'
     };
   }
 
@@ -113,6 +138,7 @@ export function getFeeStatus(student) {
       status: 'PAID IN FULL',
       badge: 'PAID IN FULL',
       isPaid: true,
+      isNoFee: false,
       isOverdue: false,
       daysOverdue: 0,
       label: 'Paid in Full'

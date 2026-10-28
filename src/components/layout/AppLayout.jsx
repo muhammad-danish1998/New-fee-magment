@@ -11,7 +11,7 @@ export function AppLayout() {
       <Navbar onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)} mobileMenuOpen={mobileMenuOpen} />
       <div className="flex-1 flex flex-col md:flex-row relative">
         <Sidebar mobileMenuOpen={mobileMenuOpen} onCloseMobileMenu={() => setMobileMenuOpen(false)} />
-        <main className="flex-1 p-3.5 sm:p-5 md:p-8 max-w-7xl w-full mx-auto overflow-y-auto">
+        <main className="flex-1 p-3.5 sm:p-5 md:p-8 max-w-7xl w-full mx-auto overflow-y-auto overflow-x-hidden">
           <Outlet />
         </main>
       </div>

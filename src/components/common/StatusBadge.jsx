@@ -1,10 +1,19 @@
 import React from 'react';
-import { CheckCircle2, Clock, AlertCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, AlertTriangle, MinusCircle } from 'lucide-react';
 
 export function StatusBadge({ status, label, className = '' }) {
   const normStatus = (status || '').toUpperCase();
 
   switch (normStatus) {
+    case 'NO FEE / WAIVED':
+    case 'NO FEE':
+    case 'WAIVED':
+      return (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300 dark:border-slate-700 whitespace-nowrap ${className}`}>
+          <MinusCircle className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+          <span>{label || 'NO FEE / WAIVED'}</span>
+        </span>
+      );
     case 'PAID IN FULL':
       return (
         <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-500/30 whitespace-nowrap ${className}`}>

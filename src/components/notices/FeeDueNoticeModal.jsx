@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { X, Printer, Share2, AlertTriangle, Calendar, FileText, CheckCircle2, Clock } from 'lucide-react';
 import { formatCurrency, formatDate } from '../../utils/feeCalculator';
+import { toTitleCase } from '../../utils/textHelper';
+import { formatPhoneNumber } from '../../utils/phoneHelper';
 import { CollegeLogo } from '../common/CollegeLogo';
 import { printFeeDueNotice } from '../../utils/printFeeDueNotice';
 import { createFeeDueNotice, markNoticeAsSent } from '../../services/noticeService';
@@ -70,7 +72,7 @@ export function FeeDueNoticeModal({ isOpen, onClose, student, onNoticeCreated })
         status: 'Sent'
       });
 
-      const message = `*${collegeName}*\n*OFFICIAL FEE DUE NOTICE / REMINDER*\nRef: ${noticeRef}\n\nDear Respected Parents of *${student.student_name}* (S/O ${student.father_name}),\n\nThis is a formal reminder regarding the outstanding admission/tuition fee dues for the current session.\n\n*Class & Group:* ${student.academic_class} - ${student.program_group}\n*Total Fee:* ${formatCurrency(totalFee)}\n*Total Paid:* ${formatCurrency(totalPaid)}\n*Outstanding Balance Due:* *${formatCurrency(remainingDues)}*\n*Payment Clearance Deadline:* *${formatDate(deadlineDate)}*\n${remarks ? `*Remarks:* ${remarks}\n` : ''}\n⚠️ *Important Notice:* Please clear the remaining balance on or before the due date to avoid late submission penalties and to ensure uninterrupted Board Enrollment / Admit Card issuance.\n\nThank you.\n*Accounts & Admissions Office*\n${collegeName}\nContact: ${collegePhone}`;
+      const message = `*${collegeName}*\n*OFFICIAL FEE DUE NOTICE / REMINDER*\nRef: ${noticeRef}\n\nDear Respected Parents of *${toTitleCase(student.student_name)}* (S/O ${toTitleCase(student.father_name)}),\n\nThis is a formal reminder regarding the outstanding admission/tuition fee dues for the current session.\n\n*Class & Group:* ${student.academic_class} - ${student.program_group}\n*Total Fee:* ${formatCurrency(totalFee)}\n*Total Paid:* ${formatCurrency(totalPaid)}\n*Outstanding Balance Due:* *${formatCurrency(remainingDues)}*\n*Payment Clearance Deadline:* *${formatDate(deadlineDate)}*\n${remarks ? `*Remarks:* ${remarks}\n` : ''}\n⚠️ *Important Notice:* Please clear the remaining balance on or before the due date to avoid late submission penalties and to ensure uninterrupted Board Enrollment / Admit Card issuance.\n\nThank you.\n*Accounts & Admissions Office*\n${collegeName}\nContact: ${collegePhone}`;
 
       const cleanPhone = (student.contact_number || '').replace(/[^0-9]/g, '');
       const encodedMsg = encodeURIComponent(message);
@@ -202,11 +204,11 @@ export function FeeDueNoticeModal({ isOpen, onClose, student, onNoticeCreated })
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs">
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Student Name</span>
-                <span className="font-bold text-white">{student.student_name}</span>
+                <span className="font-bold text-white">{toTitleCase(student.student_name)}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Father Name</span>
-                <span className="font-medium text-slate-300">{student.father_name}</span>
+                <span className="font-medium text-slate-300">{toTitleCase(student.father_name)}</span>
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Class &amp; Group</span>
@@ -214,7 +216,7 @@ export function FeeDueNoticeModal({ isOpen, onClose, student, onNoticeCreated })
               </div>
               <div>
                 <span className="text-slate-400 block text-[10px] uppercase font-bold">Contact</span>
-                <span className="font-mono text-slate-300">{student.contact_number || 'N/A'}</span>
+                <span className="font-sans tabular-nums text-slate-300">{formatPhoneNumber(student.contact_number)}</span>
               </div>
             </div>
 
@@ -230,15 +232,15 @@ export function FeeDueNoticeModal({ isOpen, onClose, student, onNoticeCreated })
                 <tbody className="divide-y divide-slate-800 bg-slate-950">
                   <tr>
                     <td className="p-2.5 text-slate-300">Total Approved Admission Fee</td>
-                    <td className="p-2.5 text-right font-mono font-medium">{formatCurrency(totalFee)}</td>
+                    <td className="p-2.5 text-right font-sans tabular-nums font-medium">{formatCurrency(totalFee)}</td>
                   </tr>
                   <tr>
                     <td className="p-2.5 text-slate-300">Total Paid Fee to Date</td>
-                    <td className="p-2.5 text-right font-mono text-emerald-400 font-semibold">{formatCurrency(totalPaid)}</td>
+                    <td className="p-2.5 text-right font-sans tabular-nums text-emerald-400 font-semibold">{formatCurrency(totalPaid)}</td>
                   </tr>
                   <tr className="bg-amber-950/20 text-amber-300 font-bold">
                     <td className="p-2.5 text-amber-200">TOTAL REMAINING BALANCE DUE</td>
-                    <td className="p-2.5 text-right font-mono text-amber-400 text-sm">{formatCurrency(remainingDues)}</td>
+                    <td className="p-2.5 text-right font-sans tabular-nums text-amber-400 text-sm">{formatCurrency(remainingDues)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -250,7 +252,7 @@ export function FeeDueNoticeModal({ isOpen, onClose, student, onNoticeCreated })
                 <Clock className="w-4 h-4 text-rose-400" />
                 <span>Payment Clearance Deadline:</span>
               </div>
-              <div className="font-mono font-bold text-rose-300 text-sm">
+              <div className="font-sans tabular-nums font-bold text-rose-300 text-sm">
                 {deadlineDate ? formatDate(deadlineDate) : 'Not specified'}
               </div>
             </div>

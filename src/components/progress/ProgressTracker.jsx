@@ -42,6 +42,10 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
 
   const [pendingUntickStep, setPendingUntickStep] = useState(null); // step object to untick
 
+  // Feedback states for sequential lifecycle validation
+  const [orderError, setOrderError] = useState(null);
+  const [blockedAction, setBlockedAction] = useState(null);
+
   if (!student) return null;
 
   const completedCount = PROGRESS_STEPS.filter(s => !!student[s.key]).length;
@@ -56,10 +60,43 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
   const handleInitiateStepChange = (step, currentCompleted) => {
     if (!interactive || !onUpdateStep) return;
 
+    // Clear previous error messages
+    setOrderError(null);
+    setBlockedAction(null);
+
+    const stepIndex = PROGRESS_STEPS.findIndex(s => s.id === step.id);
+
     if (currentCompleted) {
-      // Unticking requires destructive confirmation
+      // 1. Unticking: block if any later steps are still completed
+      const laterCompleted = PROGRESS_STEPS.slice(stepIndex + 1).filter(s => !!student[s.key]);
+      if (laterCompleted.length > 0) {
+        const lastLater = laterCompleted[laterCompleted.length - 1];
+        const errorMsg = `Cannot untick Step ${step.id} while Step ${lastLater.id} is done.`;
+        setOrderError(errorMsg);
+        setBlockedAction({
+          title: `Cannot Untick Step ${step.id}`,
+          message: errorMsg,
+          detail: `Step ${laterCompleted.map(s => `Step ${s.id} (${s.shortLabel})`).join(', ')} is currently marked as completed. Please untick later steps first in reverse order.`
+        });
+        return;
+      }
+
+      // Unticking requires confirmation
       setPendingUntickStep(step);
     } else {
+      // 2. Ticking: require previous steps first
+      const earlierIncomplete = PROGRESS_STEPS.slice(0, stepIndex).find(s => !student[s.key]);
+      if (earlierIncomplete) {
+        const errorMsg = `Complete Step ${earlierIncomplete.id} first.`;
+        setOrderError(errorMsg);
+        setBlockedAction({
+          title: `Step ${earlierIncomplete.id} Required`,
+          message: errorMsg,
+          detail: `You cannot mark Step ${step.id} (${step.shortLabel}) as completed until Step ${earlierIncomplete.id} (${earlierIncomplete.shortLabel}) is completed.`
+        });
+        return;
+      }
+
       // Ticking requires confirmation modal with completion date
       setPendingTickStep(step);
       setTickDate(todayStr);
@@ -161,6 +198,27 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
           </div>
         </div>
 
+        {/* Lifecycle order validation error banner */}
+        {orderError && (
+          <div
+            role="alert"
+            className="mb-4 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700/60 text-amber-900 dark:text-amber-200 text-xs font-bold flex items-center justify-between gap-3 shadow-sm animate-in fade-in"
+          >
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>{orderError}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrderError(null)}
+              className="p-1 rounded text-amber-800 dark:text-amber-300 hover:bg-amber-200/50 dark:hover:bg-amber-900/50 transition-colors"
+              aria-label="Dismiss error banner"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Steps Stepper Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {PROGRESS_STEPS.map((step, idx) => {
@@ -168,6 +226,10 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
             const isNext = idx === nextPendingIndex;
             const completedDate = student[step.dateKey];
             const isDateBeforeEnrollment = isCompleted && completedDate && enrollmentDateStr && completedDate < enrollmentDateStr;
+
+            // Sequential order states
+            const earlierIncomplete = !isCompleted && PROGRESS_STEPS.slice(0, idx).find(s => !student[s.key]);
+            const laterCompleted = isCompleted && PROGRESS_STEPS.slice(idx + 1).find(s => !!student[s.key]);
 
             return (
               <div
@@ -196,13 +258,23 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
                     <button
                       type="button"
                       onClick={() => handleInitiateStepChange(step, isCompleted)}
-                      title={isCompleted ? 'Click to untick / mark pending' : 'Click to tick / mark completed'}
+                      title={
+                        isCompleted
+                          ? laterCompleted
+                            ? `Cannot untick Step ${step.id} while Step ${laterCompleted.id} is completed`
+                            : 'Click to untick / mark pending'
+                          : earlierIncomplete
+                          ? `Complete Step ${earlierIncomplete.id} first.`
+                          : 'Click to tick / mark completed'
+                      }
                       aria-label={`${isCompleted ? 'Untick' : 'Tick'} ${step.shortLabel}`}
                       className={`p-1 rounded-lg transition-transform active:scale-90 focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none ${
                         isCompleted
                           ? 'text-emerald-700 dark:text-emerald-300 hover:text-emerald-800 dark:hover:text-emerald-200'
                           : isNext
                           ? 'text-amber-700 dark:text-amber-300 hover:text-amber-800'
+                          : earlierIncomplete
+                          ? 'text-slate-400 dark:text-slate-600 hover:text-amber-600 dark:hover:text-amber-400'
                           : 'text-slate-500 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-300'
                       }`}
                     >
@@ -268,15 +340,34 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
                     <button
                       type="button"
                       onClick={() => handleInitiateStepChange(step, isCompleted)}
+                      title={
+                        isCompleted
+                          ? laterCompleted
+                            ? `Cannot untick Step ${step.id} while Step ${laterCompleted.id} is done`
+                            : 'Click to untick / mark pending'
+                          : earlierIncomplete
+                          ? `Complete Step ${earlierIncomplete.id} first.`
+                          : isNext
+                          ? 'Click to complete current stage'
+                          : 'Click to mark stage completed'
+                      }
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-teal-500 focus-visible:outline-none ${
                         isCompleted
-                          ? 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
+                          ? laterCompleted
+                            ? 'bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-300 dark:border-slate-700 hover:bg-slate-300 dark:hover:bg-slate-700'
+                            : 'bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700'
                           : isNext
                           ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-sm shadow-amber-600/20'
+                          : earlierIncomplete
+                          ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800'
                           : 'bg-teal-600 hover:bg-teal-500 text-white shadow-sm shadow-teal-600/20'
                       }`}
                     >
-                      {isCompleted ? 'Untick' : 'Tick Stage'}
+                      {isCompleted
+                        ? 'Untick'
+                        : earlierIncomplete
+                        ? `Step ${step.id} (Locked)`
+                        : 'Tick Stage'}
                     </button>
                   )}
                 </div>
@@ -393,6 +484,47 @@ export function ProgressTracker({ student, onUpdateStep, interactive = false, co
         variant="danger"
         focusCancel={true}
       />
+
+      {/* Modal: Blocked Action Alert (Step order requirement or untick block) */}
+      {blockedAction && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="blocked-action-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setBlockedAction(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-amber-300 dark:border-amber-700/60 shadow-2xl p-6 space-y-4 animate-in zoom-in-95 duration-200 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 id="blocked-action-title" className="text-base font-extrabold text-slate-900 dark:text-white">
+                {blockedAction.title}
+              </h3>
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-300 mt-2">
+                {blockedAction.message}
+              </p>
+              {blockedAction.detail && (
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-2 leading-relaxed">
+                  {blockedAction.detail}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              autoFocus
+              onClick={() => setBlockedAction(null)}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 dark:bg-slate-100 hover:bg-slate-800 dark:hover:bg-white text-white dark:text-slate-900 font-bold text-xs transition-colors shadow-sm min-h-[44px]"
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

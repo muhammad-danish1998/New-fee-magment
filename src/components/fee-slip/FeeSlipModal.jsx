@@ -1,6 +1,7 @@
 import React from 'react';
-import { X, Printer, Share2, Download, CheckCircle, AlertTriangle, Building2, Phone, Calendar, User, FileText } from 'lucide-react';
-import { formatCurrency, formatDate } from '../../utils/feeCalculator';
+import { X, Printer, Share2, Download, CheckCircle, AlertTriangle, Building2, Phone, Calendar, User, FileText, MinusCircle } from 'lucide-react';
+import { formatCurrency, formatDate, toTitleCase } from '../../utils/feeCalculator';
+import { formatPhoneNumber } from '../../utils/phoneHelper';
 import { CollegeLogo } from '../common/CollegeLogo';
 import { printFeeSlip } from '../../utils/printFeeSlip';
 
@@ -14,7 +15,8 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
   const totalFee = Number(student.total_fee) || 0;
   const totalPaid = Number(student.total_paid) || 0;
   const remainingDues = Number(student.dues) || 0;
-  const isPaidInFull = remainingDues === 0;
+  const isNoFee = totalFee <= 0;
+  const isPaidInFull = remainingDues === 0 && !isNoFee;
 
   // Calculate payment breakdown
   const paidToday = latestPayment ? Number(latestPayment.amount) : 0;
@@ -28,8 +30,12 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
 
   const handleWhatsApp = () => {
     let message = '';
-    if (isPaidInFull) {
-      message = `*${collegeName}*\n*OFFICIAL FEE PAYMENT SLIP*\n\nDear *${student.student_name}* (S/O ${student.father_name}),\n\nYour fee payment has been received successfully.\n\nReceipt No: ${receiptNo}\nPayment Date: ${formatDate(slipDate)}\nClass & Group: ${student.academic_class} - ${student.program_group}\n\n*Total Fee:* ${formatCurrency(totalFee)}\n*Total Paid:* ${formatCurrency(totalPaid)}\n*Remaining Dues:* Rs. 0\n*Status:* PAID IN FULL\n\nThank you.\n${collegeName}\n${collegePhone}`;
+    const formattedStudentName = toTitleCase(student.student_name);
+    const formattedFatherName = toTitleCase(student.father_name);
+    if (isNoFee) {
+      message = `*${collegeName}*\n*OFFICIAL FEE RECORD SLIP*\n\nDear *${formattedStudentName}* (S/O ${formattedFatherName}),\n\nClass & Group: ${student.academic_class} - ${student.program_group}\n\n*Total Fee:* Rs 0\n*Remaining Dues:* Rs 0\n*Status:* NO FEE / WAIVED\n\nNo fee applies to this student.\n\nThank you.\n${collegeName}\n${collegePhone}`;
+    } else if (isPaidInFull) {
+      message = `*${collegeName}*\n*OFFICIAL FEE PAYMENT SLIP*\n\nDear *${formattedStudentName}* (S/O ${formattedFatherName}),\n\nYour fee payment has been received successfully.\n\nReceipt No: ${receiptNo}\nPayment Date: ${formatDate(slipDate)}\nClass & Group: ${student.academic_class} - ${student.program_group}\n\n*Total Fee:* ${formatCurrency(totalFee)}\n*Total Paid:* ${formatCurrency(totalPaid)}\n*Remaining Dues:* Rs 0\n*Status:* PAID IN FULL\n\nThank you.\n${collegeName}\n${collegePhone}`;
     } else {
       const dueScheduleInfo = student.next_payment_due_date
         ? `*Due Date:* ${formatDate(student.next_payment_due_date)}${student.commitment_notes ? ` (${student.commitment_notes})` : ''}`
@@ -37,7 +43,7 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
         ? `*Due Condition / Stage:* ${student.commitment_notes}`
         : '';
 
-      message = `*${collegeName}*\n*OFFICIAL FEE PAYMENT SLIP*\n\nDear *${student.student_name}* (S/O ${student.father_name}),\n\nYour fee payment${paidToday > 0 ? ` of *${formatCurrency(paidToday)}*` : ''} has been recorded.\n\nReceipt No: ${receiptNo}\nPayment Date: ${formatDate(slipDate)}\nClass & Group: ${student.academic_class} - ${student.program_group}\n\n*Total Fee:* ${formatCurrency(totalFee)}\n*Total Paid:* ${formatCurrency(totalPaid)}\n*Remaining Dues:* ${formatCurrency(remainingDues)}\n${dueScheduleInfo ? `${dueScheduleInfo}\n` : ''}\nThank you.\n${collegeName}\n${collegePhone}`;
+      message = `*${collegeName}*\n*OFFICIAL FEE PAYMENT SLIP*\n\nDear *${formattedStudentName}* (S/O ${formattedFatherName}),\n\nYour fee payment${paidToday > 0 ? ` of *${formatCurrency(paidToday)}*` : ''} has been recorded.\n\nReceipt No: ${receiptNo}\nPayment Date: ${formatDate(slipDate)}\nClass & Group: ${student.academic_class} - ${student.program_group}\n\n*Total Fee:* ${formatCurrency(totalFee)}\n*Total Paid:* ${formatCurrency(totalPaid)}\n*Remaining Dues:* ${formatCurrency(remainingDues)}\n${dueScheduleInfo ? `${dueScheduleInfo}\n` : ''}\nThank you.\n${collegeName}\n${collegePhone}`;
     }
 
     const cleanPhone = (student.contact_number || '').replace(/[^0-9]/g, '');
@@ -120,11 +126,11 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <span className="text-slate-400 print-muted-text block text-[10px] uppercase font-semibold">Student Name</span>
-                  <span className="font-bold text-white print-dark-text text-sm">{student.student_name}</span>
+                  <span className="font-bold text-white print-dark-text text-sm">{toTitleCase(student.student_name)}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 print-muted-text block text-[10px] uppercase font-semibold">Father Name</span>
-                  <span className="font-medium text-slate-200 print-dark-text">{student.father_name}</span>
+                  <span className="font-medium text-slate-200 print-dark-text">{toTitleCase(student.father_name)}</span>
                 </div>
                 <div>
                   <span className="text-slate-400 print-muted-text block text-[10px] uppercase font-semibold">Session &amp; Stream</span>
@@ -140,11 +146,17 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
                 </div>
                 <div>
                   <span className="text-slate-400 print-muted-text block text-[10px] uppercase font-semibold">Contact No</span>
-                  <span className="font-mono text-slate-300 print-dark-text">{student.contact_number || 'N/A'}</span>
+                  <span className="font-sans tabular-nums text-slate-300 print-dark-text">{student.contact_number ? formatPhoneNumber(student.contact_number) : 'N/A'}</span>
                 </div>
                 <div className="col-span-2">
                   <span className="text-slate-400 print-muted-text block text-[10px] uppercase font-semibold">Reference</span>
-                  <span className="text-slate-300 print-dark-text">{student.reference || 'Direct Admission'}</span>
+                  <span className="text-slate-300 print-dark-text">
+                    {student.admission_source === 'Referral'
+                      ? (student.reference && student.reference !== 'Direct Admission' && student.reference !== 'Direct'
+                          ? student.reference
+                          : (student.broker_name || 'Referral Partner'))
+                      : (student.reference || 'Direct Admission')}
+                  </span>
                 </div>
               </div>
             </div>
@@ -161,27 +173,27 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
                 <tbody className="divide-y divide-slate-800/80 print-border text-slate-200 print-dark-text">
                   <tr>
                     <td className="py-2 px-4 font-medium">Total Agreed Course Fee</td>
-                    <td className="py-2 px-4 text-right font-mono font-bold">{formatCurrency(totalFee)}</td>
+                    <td className="py-2 px-4 text-right font-sans tabular-nums font-bold">{formatCurrency(totalFee)}</td>
                   </tr>
                   {paidToday > 0 && (
                     <>
                       <tr className="text-slate-400 print-muted-text">
                         <td className="py-1.5 px-4">Previously Paid Amount</td>
-                        <td className="py-1.5 px-4 text-right font-mono">{formatCurrency(previousPaid)}</td>
+                        <td className="py-1.5 px-4 text-right font-sans tabular-nums">{formatCurrency(previousPaid)}</td>
                       </tr>
                       <tr className="text-teal-300 print-dark-text font-semibold bg-teal-500/5">
                         <td className="py-2 px-4">Amount Paid Today ({formatDate(slipDate)})</td>
-                        <td className="py-2 px-4 text-right font-mono">{formatCurrency(paidToday)}</td>
+                        <td className="py-2 px-4 text-right font-sans tabular-nums">{formatCurrency(paidToday)}</td>
                       </tr>
                     </>
                   )}
                   <tr className="font-bold bg-slate-900/50 print-bg-light">
                     <td className="py-2 px-4">Cumulative Total Paid</td>
-                    <td className="py-2 px-4 text-right font-mono text-emerald-400 print-dark-text">{formatCurrency(totalPaid)}</td>
+                    <td className="py-2 px-4 text-right font-sans tabular-nums text-emerald-400 print-dark-text">{formatCurrency(totalPaid)}</td>
                   </tr>
                   <tr className="font-extrabold bg-slate-900/90 print-bg-light text-sm">
                     <td className="py-2.5 px-4">Remaining Outstanding Dues</td>
-                    <td className={`py-2.5 px-4 text-right font-mono ${remainingDues > 0 ? 'text-amber-400 print-dark-text' : 'text-emerald-400 print-dark-text'}`}>
+                    <td className={`py-2.5 px-4 text-right font-sans tabular-nums ${remainingDues > 0 ? 'text-amber-400 print-dark-text' : 'text-emerald-400 print-dark-text'}`}>
                       {formatCurrency(remainingDues)}
                     </td>
                   </tr>
@@ -191,7 +203,18 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
 
             {/* Payment Status & Next Due Date Banner */}
             <div>
-              {isPaidInFull ? (
+              {isNoFee ? (
+                <div className="p-3.5 rounded-xl bg-slate-800/40 print-bg-light border border-slate-600/40 text-slate-300 print-dark-text flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <MinusCircle className="w-5 h-5 text-slate-400" />
+                    <div>
+                      <div className="font-bold text-sm tracking-wide">STATUS: NO FEE / WAIVED</div>
+                      <div className="text-[11px] opacity-80">No fee applies to this student.</div>
+                    </div>
+                  </div>
+                  <div className="font-sans tabular-nums font-bold text-base">Rs 0 Dues</div>
+                </div>
+              ) : isPaidInFull ? (
                 <div className="p-3.5 rounded-xl bg-emerald-950/40 print-bg-light border border-emerald-500/40 text-emerald-300 print-dark-text flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-5 h-5 text-emerald-400" />
@@ -200,7 +223,7 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
                       <div className="text-[11px] opacity-80">All course tuition fees are settled. Thank you!</div>
                     </div>
                   </div>
-                  <div className="font-mono font-bold text-base">Rs. 0 DUES</div>
+                  <div className="font-sans tabular-nums font-bold text-base">Rs 0 Dues</div>
                 </div>
               ) : (
                 <div className="p-3.5 rounded-xl bg-amber-950/40 print-bg-light border border-amber-500/40 text-amber-200 print-dark-text flex items-center justify-between text-xs">
@@ -225,7 +248,7 @@ export function FeeSlipModal({ isOpen, onClose, student, latestPayment = null })
                       </div>
                     </div>
                   </div>
-                  <div className="font-mono font-bold text-rose-400 print-dark-text text-base">
+                  <div className="font-sans tabular-nums font-bold text-rose-400 print-dark-text text-base">
                     {formatCurrency(remainingDues)}
                   </div>
                 </div>

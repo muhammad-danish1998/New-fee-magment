@@ -5,7 +5,7 @@ import {
   Share2, Printer, Plus, Trash2, ArrowLeft, CheckCircle2,
   AlertTriangle, Phone, ShieldCheck, Clock, UserCheck, CalendarClock,
   History, Edit3, BellRing, Handshake, RefreshCw, MoreVertical,
-  Eye, EyeOff, RotateCcw, ArrowRightLeft, Info, ShieldAlert
+  Eye, EyeOff, RotateCcw, ArrowRightLeft, Info, ShieldAlert, MinusCircle
 } from 'lucide-react';
 import { getStudentById, updateStudentProgress, deleteStudent } from '../services/studentService';
 import { deletePayment } from '../services/paymentService';
@@ -28,7 +28,8 @@ import { ChangeStatusModal } from '../components/students/ChangeStatusModal';
 import { ReopenStudentModal } from '../components/students/ReopenStudentModal';
 import { DeleteStudentSafeModal } from '../components/students/DeleteStudentSafeModal';
 import { isArchived, isActive, getStudentStatusConfig } from '../utils/studentStatus';
-import { formatCurrency, formatDate, getFeeStatus } from '../utils/feeCalculator';
+import { formatCurrency, formatDate, getFeeStatus, toTitleCase } from '../utils/feeCalculator';
+import { formatPhoneNumber } from '../utils/phoneHelper';
 
 export function StudentProfilePage() {
   const { id } = useParams();
@@ -106,6 +107,8 @@ export function StudentProfilePage() {
 
   useEffect(() => {
     if (id) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      document.querySelector('main')?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
       loadStudent();
     }
   }, [id]);
@@ -150,12 +153,16 @@ export function StudentProfilePage() {
 
   const handleDirectWhatsApp = () => {
     if (!student) return;
-    const isPaidInFull = student.dues === 0;
+    const isNoFeeStudent = (Number(student.total_fee) || 0) <= 0;
+    const isPaidInFull = student.dues === 0 && !isNoFeeStudent;
     let message = '';
-    if (isPaidInFull) {
-      message = `Dear ${student.student_name},\n\nYour fee payment has been received successfully.\n\nTotal Fee: ${formatCurrency(student.total_fee)}\nTotal Paid: ${formatCurrency(student.total_paid)}\nRemaining Dues: Rs.0\n\nStatus: PAID IN FULL\n\nThank you.\n${collegeName}`;
+    const formattedName = toTitleCase(student.student_name);
+    if (isNoFeeStudent) {
+      message = `Dear ${formattedName},\n\nFee Record Summary:\n\nTotal Fee: Rs 0\nRemaining Dues: Rs 0\n\nStatus: NO FEE / WAIVED\n\nNo fee applies to this student.\n\nThank you.\n${collegeName}`;
+    } else if (isPaidInFull) {
+      message = `Dear ${formattedName},\n\nYour fee payment has been received successfully.\n\nTotal Fee: ${formatCurrency(student.total_fee)}\nTotal Paid: ${formatCurrency(student.total_paid)}\nRemaining Dues: Rs 0\n\nStatus: PAID IN FULL\n\nThank you.\n${collegeName}`;
     } else {
-      message = `Dear ${student.student_name},\n\nFee Summary & Payment Reminder:\n\nTotal Fee: ${formatCurrency(student.total_fee)}\nTotal Paid: ${formatCurrency(student.total_paid)}\nRemaining Dues: ${formatCurrency(student.dues)}\n${student.next_payment_due_date ? `Next Due Date: ${formatDate(student.next_payment_due_date)}\n` : ''}${student.promised_amount ? `Promised Amount: ${formatCurrency(student.promised_amount)}\n` : ''}\nThank you.\n${collegeName}`;
+      message = `Dear ${formattedName},\n\nFee Summary & Payment Reminder:\n\nTotal Fee: ${formatCurrency(student.total_fee)}\nTotal Paid: ${formatCurrency(student.total_paid)}\nRemaining Dues: ${formatCurrency(student.dues)}\n${student.next_payment_due_date ? `Next Due Date: ${formatDate(student.next_payment_due_date)}\n` : ''}${student.promised_amount ? `Promised Amount: ${formatCurrency(student.promised_amount)}\n` : ''}\nThank you.\n${collegeName}`;
     }
 
     const cleanPhone = (student.contact_number || '').replace(/[^0-9]/g, '');
@@ -229,9 +236,10 @@ export function StudentProfilePage() {
   }
 
   const statusInfo = getFeeStatus(student);
-  const paidPercent = student && student.total_fee > 0
+  const isNoFee = (Number(student?.total_fee) || 0) <= 0;
+  const paidPercent = !isNoFee && student && student.total_fee > 0
     ? Math.min(100, Math.round(((student.total_paid || 0) / student.total_fee) * 100))
-    : 100;
+    : 0;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-28 md:pb-8">
@@ -250,7 +258,7 @@ export function StudentProfilePage() {
           </button>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              {student.student_name}
+              {toTitleCase(student.student_name)}
             </h1>
             <StudentStatusBadge status={student.status} size="sm" />
             <StatusBadge
@@ -264,7 +272,7 @@ export function StudentProfilePage() {
             }`}>
               {student.admission_source === 'Referral' ? '🤝 Referral Student' : 'Direct Student'}
             </span>
-            {student.commitment_status && student.commitment_status !== 'None' && (
+            {student.commitment_status && student.commitment_status !== 'None' && !isNoFee && (
               <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 student.commitment_status === 'Fulfilled'
                   ? 'bg-emerald-50 dark:bg-emerald-950/80 text-emerald-900 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-600/50'
@@ -275,7 +283,7 @@ export function StudentProfilePage() {
             )}
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 font-medium">
-            S/O {student.father_name} • Enrolled: {formatDate(student.created_at)}
+            S/O {toTitleCase(student.father_name)} • Enrolled: {formatDate(student.created_at)}
           </p>
         </div>
 
@@ -505,21 +513,21 @@ export function StudentProfilePage() {
             <div className="space-y-3 text-xs sm:text-sm pt-2">
               <div className="flex justify-between text-slate-600 dark:text-slate-300 font-medium">
                 <span>Total Fee</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                <span className="font-sans tabular-nums font-bold text-slate-900 dark:text-white">
                   {formatCurrency(student.total_fee)}
                 </span>
               </div>
 
               <div className="flex justify-between text-slate-600 dark:text-slate-300 font-medium">
                 <span>Total Paid</span>
-                <span className="font-mono font-bold text-emerald-700 dark:text-emerald-400">
+                <span className="font-sans tabular-nums font-bold text-emerald-700 dark:text-emerald-400">
                   {formatCurrency(student.total_paid)}
                 </span>
               </div>
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
                 <span className="font-bold text-slate-800 dark:text-slate-200">Remaining Dues</span>
-                <span className={`font-mono font-extrabold text-base sm:text-lg ${
+                <span className={`font-sans tabular-nums font-extrabold text-base sm:text-lg ${
                   statusInfo.isOverdue
                     ? 'text-rose-600 dark:text-rose-400'
                     : student.dues > 0
@@ -534,35 +542,43 @@ export function StudentProfilePage() {
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-slate-600 dark:text-slate-400">Fee Clearance</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-extrabold border ${
-                      paidPercent === 100
-                        ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40'
-                        : paidPercent > 0
-                        ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-500/40'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
-                    }`}
-                  >
-                    {paidPercent}% Paid
-                  </span>
+                  {isNoFee ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-sans font-bold shrink-0 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
+                      No Fee
+                    </span>
+                  ) : (
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-sans tabular-nums font-extrabold border ${
+                        paidPercent === 100
+                          ? 'bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-500/40'
+                          : paidPercent > 0
+                          ? 'bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-500/40'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700'
+                      }`}
+                    >
+                      {paidPercent}% Paid
+                    </span>
+                  )}
                 </div>
                 <div
                   className="w-full h-3 bg-slate-200 dark:bg-slate-950 rounded-full overflow-hidden p-0.5 border border-slate-300 dark:border-slate-700 shadow-inner"
                   role="progressbar"
-                  aria-valuenow={paidPercent}
+                  aria-valuenow={isNoFee ? 0 : paidPercent}
                   aria-valuemin="0"
                   aria-valuemax="100"
-                  aria-label={`Fee payment clearance: ${paidPercent}%`}
+                  aria-label={isNoFee ? 'No fee applies to this student' : `Fee payment clearance: ${paidPercent}%`}
                 >
                   <div
                     className={`h-full rounded-full transition-all duration-300 shadow-sm ${
-                      paidPercent === 100
+                      isNoFee
+                        ? 'bg-transparent'
+                        : paidPercent === 100
                         ? 'bg-emerald-500 dark:bg-emerald-400'
                         : paidPercent > 0
                         ? 'bg-gradient-to-r from-teal-500 via-emerald-500 to-teal-400 dark:from-teal-400 dark:to-emerald-400'
                         : 'bg-transparent'
                     }`}
-                    style={{ width: `${paidPercent}%` }}
+                    style={{ width: isNoFee ? '0%' : `${paidPercent}%` }}
                   ></div>
                 </div>
               </div>
@@ -576,7 +592,7 @@ export function StudentProfilePage() {
                       <span className="text-amber-900 dark:text-amber-200 font-bold">Next Due Date</span>
                     </span>
                     {student.promised_amount && (
-                      <span className="font-bold text-amber-900 dark:text-amber-200 font-mono">
+                      <span className="font-bold text-amber-900 dark:text-amber-200 font-sans tabular-nums">
                         {formatCurrency(student.promised_amount)}
                       </span>
                     )}
@@ -607,6 +623,11 @@ export function StudentProfilePage() {
                       "{student.commitment_notes}"
                     </div>
                   )}
+                </div>
+              ) : isNoFee ? (
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 text-xs text-slate-700 dark:text-slate-300 flex items-center gap-2 font-medium">
+                  <MinusCircle className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+                  <span>No fee applies to this student.</span>
                 </div>
               ) : (
                 <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-600/50 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2 font-medium">
@@ -683,7 +704,7 @@ export function StudentProfilePage() {
                         <span className="font-mono text-teal-700 dark:text-teal-300 font-bold">
                           {p.receipt_no || 'RCP-N/A'}
                         </span>
-                        <span className="font-mono font-extrabold text-sm text-emerald-700 dark:text-emerald-400">
+                        <span className="font-sans tabular-nums font-extrabold text-sm text-emerald-700 dark:text-emerald-400">
                           {formatCurrency(p.amount)}
                         </span>
                       </div>
@@ -742,7 +763,7 @@ export function StudentProfilePage() {
                           <td className="py-2.5 px-2.5 text-slate-800 dark:text-slate-300 font-medium whitespace-nowrap">
                             {formatDate(p.payment_date)}
                           </td>
-                          <td className="py-2.5 px-2.5 font-mono font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                          <td className="py-2.5 px-2.5 font-sans tabular-nums font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                             {formatCurrency(p.amount)}
                           </td>
                           <td className="py-2.5 px-2.5 text-slate-800 dark:text-slate-300">
@@ -820,11 +841,11 @@ export function StudentProfilePage() {
           <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
               <span className="text-slate-600 dark:text-slate-400 block text-[11px] font-bold">Full Name</span>
-              <span className="font-extrabold text-slate-900 dark:text-white text-sm">{student.student_name}</span>
+              <span className="font-extrabold text-slate-900 dark:text-white text-sm">{toTitleCase(student.student_name)}</span>
             </div>
             <div>
               <span className="text-slate-600 dark:text-slate-400 block text-[11px] font-bold">Father Name</span>
-              <span className="font-bold text-slate-800 dark:text-slate-200">{student.father_name}</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{toTitleCase(student.father_name)}</span>
             </div>
             <div>
               <span className="text-slate-600 dark:text-slate-400 block text-[11px] font-bold">Gender</span>
@@ -884,10 +905,10 @@ export function StudentProfilePage() {
                 <div className="flex items-center gap-2">
                   <a
                     href={`tel:${student.contact_number}`}
-                    className="font-mono font-bold text-teal-700 dark:text-teal-400 hover:underline inline-flex items-center gap-1.5"
+                    className="font-sans tabular-nums font-bold text-teal-700 dark:text-teal-400 hover:underline inline-flex items-center gap-1.5"
                   >
                     <Phone className="w-3.5 h-3.5" />
-                    <span>{student.contact_number}</span>
+                    <span>{formatPhoneNumber(student.contact_number)}</span>
                   </a>
                 </div>
               ) : (
@@ -918,7 +939,13 @@ export function StudentProfilePage() {
 
             <div>
               <span className="text-slate-600 dark:text-slate-400 block text-[11px] font-bold">Reference / Remarks</span>
-              <span className="text-slate-800 dark:text-slate-300 font-medium">{student.reference || 'Direct Admission'}</span>
+              <span className="text-slate-800 dark:text-slate-300 font-medium">
+                {student.admission_source === 'Referral'
+                  ? (student.reference && student.reference !== 'Direct Admission' && student.reference !== 'Direct'
+                      ? student.reference
+                      : (brokers.find(b => b.id === student.broker_id)?.name || 'Referral Partner'))
+                  : (student.reference || 'Direct Admission')}
+              </span>
             </div>
           </div>
 
@@ -940,7 +967,7 @@ export function StudentProfilePage() {
               <div className="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 border-purple-200 dark:border-purple-500/20 pt-2 sm:pt-0">
                 <div className="sm:text-right">
                   <span className="text-[10px] uppercase font-bold text-slate-600 dark:text-slate-400 block">Agreed Snapshot Amount</span>
-                  <span className="font-mono font-extrabold text-purple-700 dark:text-purple-300 text-sm">
+                  <span className="font-sans tabular-nums font-extrabold text-purple-700 dark:text-purple-300 text-sm">
                     {formatCurrency(student.broker_agreed_amount || 0)}
                   </span>
                 </div>
@@ -1178,7 +1205,7 @@ export function StudentProfilePage() {
             <span>
               Are you sure you want to delete payment receipt{' '}
               <strong className="font-mono text-slate-900 dark:text-white">{paymentToDelete.receipt_no}</strong> for{' '}
-              <strong className="font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(paymentToDelete.amount)}</strong>?
+              <strong className="font-sans tabular-nums font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paymentToDelete.amount)}</strong>?
               Total paid and student dues will be automatically recalculated.
             </span>
           ) : null

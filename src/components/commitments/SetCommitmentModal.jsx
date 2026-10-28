@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Calendar, DollarSign, AlertCircle, Clock, Award } from 'lucide-react';
 import { setStudentCommitment } from '../../services/commitmentService';
-import { formatCurrency } from '../../utils/feeCalculator';
+import { formatCurrency, toTitleCase } from '../../utils/feeCalculator';
 
 export function SetCommitmentModal({ isOpen, onClose, student, onCommitmentSaved }) {
   if (!isOpen || !student) return null;
@@ -113,10 +113,10 @@ export function SetCommitmentModal({ isOpen, onClose, student, onCommitmentSaved
 
           {/* Student Dues Info */}
           <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800 text-xs space-y-1">
-            <div className="text-slate-400">Student: <span className="font-semibold text-white">{student.student_name}</span></div>
+            <div className="text-slate-400">Student: <span className="font-semibold text-white">{toTitleCase(student.student_name)}</span></div>
             <div className="flex justify-between pt-1 font-semibold text-amber-300">
               <span>Total Remaining Dues:</span>
-              <span>{formatCurrency(remainingDues)}</span>
+              <span className="font-sans tabular-nums">{formatCurrency(remainingDues)}</span>
             </div>
           </div>
 
@@ -134,7 +134,7 @@ export function SetCommitmentModal({ isOpen, onClose, student, onCommitmentSaved
                 onChange={(e) => setPromisedAmount(e.target.value)}
                 placeholder="e.g. 10000"
                 required
-                className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-medium"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-sans tabular-nums font-medium"
               />
               <button
                 type="button"
@@ -155,39 +155,39 @@ export function SetCommitmentModal({ isOpen, onClose, student, onCommitmentSaved
               <button
                 type="button"
                 onClick={() => setCommitmentMode('stage')}
-                className={`py-2 px-2 rounded-lg font-semibold border transition-all text-center flex items-center justify-center gap-1 ${
+                className={`py-2 px-2 rounded-lg font-bold border transition-all text-center flex items-center justify-center gap-1 ${
                   commitmentMode === 'stage'
-                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/60 shadow-sm'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                    ? 'bg-teal-600 text-white border-teal-400 shadow-md'
+                    : 'bg-slate-950 text-slate-300 border-slate-800 hover:text-white'
                 }`}
               >
-                <Award className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <Award className="w-3.5 h-3.5 text-teal-300 shrink-0" />
                 <span className="truncate">Stage Milestone</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCommitmentMode('date')}
-                className={`py-2 px-2 rounded-lg font-semibold border transition-all text-center flex items-center justify-center gap-1 ${
+                className={`py-2 px-2 rounded-lg font-bold border transition-all text-center flex items-center justify-center gap-1 ${
                   commitmentMode === 'date'
-                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/60 shadow-sm'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                    ? 'bg-teal-600 text-white border-teal-400 shadow-md'
+                    : 'bg-slate-950 text-slate-300 border-slate-800 hover:text-white'
                 }`}
               >
-                <Calendar className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <Calendar className="w-3.5 h-3.5 text-teal-300 shrink-0" />
                 <span className="truncate">Calendar Date</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCommitmentMode('both')}
-                className={`py-2 px-2 rounded-lg font-semibold border transition-all text-center flex items-center justify-center gap-1 ${
+                className={`py-2 px-2 rounded-lg font-bold border transition-all text-center flex items-center justify-center gap-1 ${
                   commitmentMode === 'both'
-                    ? 'bg-teal-500/20 text-teal-300 border-teal-500/60 shadow-sm'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+                    ? 'bg-teal-600 text-white border-teal-400 shadow-md'
+                    : 'bg-slate-950 text-slate-300 border-slate-800 hover:text-white'
                 }`}
               >
-                <Clock className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <Clock className="w-3.5 h-3.5 text-teal-300 shrink-0" />
                 <span className="truncate">Date &amp; Stage</span>
               </button>
             </div>
@@ -205,23 +205,28 @@ export function SetCommitmentModal({ isOpen, onClose, student, onCommitmentSaved
                   'On Examination in Verification',
                   'On Admit Card Issuance',
                   'On Class Commencement',
-                ].map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => {
-                      setSelectedStagePreset(preset);
-                      setCustomNotes('');
-                    }}
-                    className={`p-2 rounded-lg border text-left transition-all ${
-                      selectedStagePreset === preset && !customNotes
-                        ? 'bg-teal-950 text-teal-300 border-teal-500/60 ring-1 ring-teal-500/30'
-                        : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-850'
-                    }`}
-                  >
-                    <span className="font-semibold block text-[11px]">{preset}</span>
-                  </button>
-                ))}
+                ].map((preset) => {
+                  const isSelected = selectedStagePreset === preset && !customNotes;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => {
+                        setSelectedStagePreset(preset);
+                        setCustomNotes('');
+                      }}
+                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                        isSelected
+                          ? 'bg-teal-900/90 border-teal-400 ring-2 ring-teal-400/50 shadow-md'
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-850 hover:text-white'
+                      }`}
+                    >
+                      <span className={`font-bold block text-xs ${isSelected ? 'text-white' : 'text-slate-200'}`}>
+                        {preset}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}

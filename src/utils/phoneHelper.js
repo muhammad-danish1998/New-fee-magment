@@ -12,14 +12,23 @@ export function isValidPakistaniPhone(phone) {
   return /^03\d{9}$/.test(digits);
 }
 
-export function normalizePakistaniPhone(phone) {
-  if (!phone) return '';
-  const digits = String(phone).replace(/\D/g, '');
+export function formatPhoneNumber(phone) {
+  if (!phone) return '-';
+  let digits = String(phone).replace(/\D/g, '');
+  // Normalize international prefix (e.g. 923001234567 -> 03001234567)
+  if (digits.startsWith('923') && digits.length === 12) {
+    digits = '0' + digits.slice(2);
+  } else if (digits.startsWith('3') && digits.length === 10) {
+    digits = '0' + digits;
+  }
   if (/^03\d{9}$/.test(digits)) {
-    // Return standard formatted: 03XX-XXXXXXX
     return `${digits.slice(0, 4)}-${digits.slice(4)}`;
   }
-  return String(phone).trim();
+  return String(phone).trim() || '-';
+}
+
+export function normalizePakistaniPhone(phone) {
+  return formatPhoneNumber(phone);
 }
 
 export function formatPakistaniPhoneInput(val) {

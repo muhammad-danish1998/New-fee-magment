@@ -21,7 +21,7 @@ import { getStudents } from '../services/studentService';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { StudentStatusBadge } from '../components/students/StudentStatusBadge';
 import { isArchived } from '../utils/studentStatus';
-import { formatCurrency, formatDate } from '../utils/feeCalculator';
+import { formatCurrency, formatDate, toTitleCase } from '../utils/feeCalculator';
 
 export function MonthlyReportPage() {
   const [students, setStudents] = useState([]);
@@ -88,6 +88,25 @@ export function MonthlyReportPage() {
     return computeMonthlyStats(students.filter(s => s.admission_session === 'Annual II'));
   }, [students]);
 
+  // Totals for Annual I & Annual II tables
+  const annualOneTotals = useMemo(() => {
+    return annualOneMonthly.reduce((acc, row) => ({
+      count: acc.count + row.count,
+      totalFee: acc.totalFee + row.totalFee,
+      paid: acc.paid + row.paid,
+      dues: acc.dues + row.dues,
+    }), { count: 0, totalFee: 0, paid: 0, dues: 0 });
+  }, [annualOneMonthly]);
+
+  const annualTwoTotals = useMemo(() => {
+    return annualTwoMonthly.reduce((acc, row) => ({
+      count: acc.count + row.count,
+      totalFee: acc.totalFee + row.totalFee,
+      paid: acc.paid + row.paid,
+      dues: acc.dues + row.dues,
+    }), { count: 0, totalFee: 0, paid: 0, dues: 0 });
+  }, [annualTwoMonthly]);
+
   // Modal filtered students
   const filteredModalStudents = useMemo(() => {
     if (!activeMonthDetails) return [];
@@ -100,6 +119,15 @@ export function MonthlyReportPage() {
       (s.program_group && s.program_group.toLowerCase().includes(term))
     );
   }, [activeMonthDetails, modalSearch]);
+
+  const modalTotals = useMemo(() => {
+    return filteredModalStudents.reduce((acc, st) => ({
+      count: acc.count + 1,
+      totalFee: acc.totalFee + (Number(st.total_fee) || 0),
+      paid: acc.paid + (Number(st.total_paid) || 0),
+      dues: acc.dues + (Number(st.dues) || 0),
+    }), { count: 0, totalFee: 0, paid: 0, dues: 0 });
+  }, [filteredModalStudents]);
 
   const exportMonthlyCSV = (sessionName, data) => {
     const headers = ['Month', 'Session', 'Students Admitted', 'Total Fee Generated', 'Amount Paid', 'Remaining Dues'];
@@ -247,7 +275,7 @@ export function MonthlyReportPage() {
                     <th className="py-3 px-4 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {annualOneMonthly.map((row) => (
                     <tr
                       key={row.sortKey}
@@ -259,17 +287,17 @@ export function MonthlyReportPage() {
                         {row.monthLabel}
                       </td>
                       <td className="py-3.5 px-4 text-center font-bold">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-teal-600 dark:text-teal-300 font-sans">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-teal-600 dark:text-teal-300 font-sans tabular-nums">
                           {row.count} students
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-right font-medium text-slate-700 dark:text-slate-200">
+                      <td className="py-3.5 px-4 text-right font-medium text-slate-700 dark:text-slate-200 tabular-nums">
                         {formatCurrency(row.totalFee)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                         {formatCurrency(row.paid)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-amber-800 dark:text-amber-300">
+                      <td className="py-3.5 px-4 text-right font-bold text-amber-800 dark:text-amber-300 tabular-nums">
                         {formatCurrency(row.dues)}
                       </td>
                       <td className="py-3.5 px-4 text-center">
@@ -284,6 +312,30 @@ export function MonthlyReportPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold text-xs">
+                  <tr>
+                    <td className="py-3 px-4 text-slate-900 dark:text-white font-extrabold uppercase tracking-wide">
+                      Total ({annualOneMonthly.length} {annualOneMonthly.length === 1 ? 'Month' : 'Months'})
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="px-2.5 py-1 rounded-md bg-teal-500/15 text-teal-800 dark:text-teal-300 font-bold tabular-nums">
+                        {annualOneTotals.count} students
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums text-slate-900 dark:text-white font-extrabold">
+                      {formatCurrency(annualOneTotals.totalFee)}
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums text-emerald-700 dark:text-emerald-400 font-extrabold">
+                      {formatCurrency(annualOneTotals.paid)}
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums text-amber-800 dark:text-amber-300 font-extrabold">
+                      {formatCurrency(annualOneTotals.dues)}
+                    </td>
+                    <td className="py-3 px-4 text-center text-slate-400 text-[11px] font-normal">
+                      —
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
@@ -349,7 +401,7 @@ export function MonthlyReportPage() {
                     <th className="py-3 px-4 text-center">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-mono">
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                   {annualTwoMonthly.map((row) => (
                     <tr
                       key={row.sortKey}
@@ -361,17 +413,17 @@ export function MonthlyReportPage() {
                         {row.monthLabel}
                       </td>
                       <td className="py-3.5 px-4 text-center font-bold">
-                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 font-sans">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 font-sans tabular-nums">
                           {row.count} students
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-right font-medium text-slate-700 dark:text-slate-200">
+                      <td className="py-3.5 px-4 text-right font-medium text-slate-700 dark:text-slate-200 tabular-nums">
                         {formatCurrency(row.totalFee)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="py-3.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                         {formatCurrency(row.paid)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-bold text-amber-800 dark:text-amber-300">
+                      <td className="py-3.5 px-4 text-right font-bold text-amber-800 dark:text-amber-300 tabular-nums">
                         {formatCurrency(row.dues)}
                       </td>
                       <td className="py-3.5 px-4 text-center">
@@ -386,6 +438,30 @@ export function MonthlyReportPage() {
                     </tr>
                   ))}
                 </tbody>
+                <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold text-xs">
+                  <tr>
+                    <td className="py-3 px-4 text-slate-900 dark:text-white font-extrabold uppercase tracking-wide">
+                      Total ({annualTwoMonthly.length} {annualTwoMonthly.length === 1 ? 'Month' : 'Months'})
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="px-2.5 py-1 rounded-md bg-indigo-500/15 text-indigo-800 dark:text-indigo-300 font-bold tabular-nums">
+                        {annualTwoTotals.count} students
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums text-slate-900 dark:text-white font-extrabold">
+                      {formatCurrency(annualTwoTotals.totalFee)}
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums text-emerald-700 dark:text-emerald-400 font-extrabold">
+                      {formatCurrency(annualTwoTotals.paid)}
+                    </td>
+                    <td className="py-3 px-4 text-right tabular-nums text-amber-800 dark:text-amber-300 font-extrabold">
+                      {formatCurrency(annualTwoTotals.dues)}
+                    </td>
+                    <td className="py-3 px-4 text-center text-slate-400 text-[11px] font-normal">
+                      —
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
@@ -424,18 +500,18 @@ export function MonthlyReportPage() {
 
             {/* Modal Quick Summary & Search */}
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-sans">
                 <span className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-semibold">
-                  Total: <strong className="text-slate-900 dark:text-white font-bold">{activeMonthDetails.students.length}</strong>
+                  Total: <strong className="text-slate-900 dark:text-white font-bold tabular-nums">{activeMonthDetails.students.length}</strong>
                 </span>
                 <span className="px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 font-semibold">
-                  Fee: <strong className="font-bold">{formatCurrency(activeMonthDetails.students.reduce((acc, s) => acc + (Number(s.total_fee) || 0), 0))}</strong>
+                  Fee: <strong className="font-bold tabular-nums">{formatCurrency(activeMonthDetails.students.reduce((acc, s) => acc + (Number(s.total_fee) || 0), 0))}</strong>
                 </span>
                 <span className="px-3 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30 font-semibold">
-                  Paid: <strong className="font-bold">{formatCurrency(activeMonthDetails.students.reduce((acc, s) => acc + (Number(s.total_paid) || 0), 0))}</strong>
+                  Paid: <strong className="font-bold tabular-nums">{formatCurrency(activeMonthDetails.students.reduce((acc, s) => acc + (Number(s.total_paid) || 0), 0))}</strong>
                 </span>
                 <span className="px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-500/30 font-semibold">
-                  Dues: <strong className="font-bold">{formatCurrency(activeMonthDetails.students.reduce((acc, s) => acc + (Number(s.dues) || 0), 0))}</strong>
+                  Dues: <strong className="font-bold tabular-nums">{formatCurrency(activeMonthDetails.students.reduce((acc, s) => acc + (Number(s.dues) || 0), 0))}</strong>
                 </span>
               </div>
 
@@ -476,24 +552,24 @@ export function MonthlyReportPage() {
                         <tr key={st.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="py-3.5 px-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-bold text-slate-900 dark:text-white text-sm">{st.student_name}</span>
+                              <span className="font-bold text-slate-900 dark:text-white text-sm">{toTitleCase(st.student_name)}</span>
                               {isArchived(st) && (
                                 <StudentStatusBadge status={st.status} size="xs" />
                               )}
                             </div>
-                            <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">S/O {st.father_name}</div>
+                            <div className="text-xs text-slate-600 dark:text-slate-300 font-medium">S/O {toTitleCase(st.father_name)}</div>
                           </td>
                           <td className="py-3.5 px-3">
                             <div className="text-slate-800 dark:text-slate-200 font-semibold text-xs">{st.program_group}</div>
                             <div className="text-xs text-teal-700 dark:text-teal-300 font-bold">Class {st.academic_class} ({st.admission_type})</div>
                           </td>
-                          <td className="py-3.5 px-3 text-right font-mono text-slate-900 dark:text-white font-bold">
+                          <td className="py-3.5 px-3 text-right font-medium text-slate-900 dark:text-white tabular-nums">
                             {formatCurrency(st.total_fee)}
                           </td>
-                          <td className="py-3.5 px-3 text-right font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">
+                          <td className="py-3.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">
                             {formatCurrency(st.total_paid)}
                           </td>
-                          <td className="py-3.5 px-3 text-right font-mono text-amber-800 dark:text-amber-300 font-extrabold">
+                          <td className="py-3.5 px-3 text-right font-bold text-amber-800 dark:text-amber-300 tabular-nums">
                             {formatCurrency(st.dues)}
                           </td>
                           <td className="py-3.5 px-3 text-center">
@@ -511,6 +587,28 @@ export function MonthlyReportPage() {
                         </tr>
                       ))}
                     </tbody>
+                    <tfoot className="border-t-2 border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 font-bold text-xs">
+                      <tr>
+                        <td className="py-3 px-3 text-slate-900 dark:text-white font-extrabold uppercase tracking-wide">
+                          Total ({filteredModalStudents.length} Students)
+                        </td>
+                        <td className="py-3 px-3 text-slate-500 text-[11px] font-normal">
+                          —
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-slate-900 dark:text-white font-extrabold">
+                          {formatCurrency(modalTotals.totalFee)}
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-emerald-700 dark:text-emerald-400 font-extrabold">
+                          {formatCurrency(modalTotals.paid)}
+                        </td>
+                        <td className="py-3 px-3 text-right tabular-nums text-amber-800 dark:text-amber-300 font-extrabold">
+                          {formatCurrency(modalTotals.dues)}
+                        </td>
+                        <td className="py-3 px-3 text-center text-slate-400 text-[11px] font-normal" colSpan={2}>
+                          —
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               )}

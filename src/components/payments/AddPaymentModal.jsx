@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, CreditCard, DollarSign, Calendar, AlertCircle, Clock, CalendarClock } from 'lucide-react';
+import { X, CreditCard, DollarSign, Calendar, AlertCircle, Clock, CalendarClock, Loader2 } from 'lucide-react';
 import { addPayment } from '../../services/paymentService';
 import { resolveOrExtendCommitment } from '../../services/commitmentService';
-import { formatCurrency, formatDate } from '../../utils/feeCalculator';
+import { formatCurrency, formatDate, toTitleCase } from '../../utils/feeCalculator';
 
 export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
   if (!isOpen || !student) return null;
@@ -13,6 +13,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
   const [amount, setAmount] = useState('');
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [bankReference, setBankReference] = useState('');
   const [notes, setNotes] = useState('');
 
   // Extension / Commitment rescheduling state
@@ -34,6 +35,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
       setAmount('');
       setPaymentDate(new Date().toISOString().split('T')[0]);
       setPaymentMethod('Cash');
+      setBankReference('');
       setNotes('');
       setExtendCommitment(false);
       setNewExtendedDate(new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0]);
@@ -45,6 +47,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
   }, [isOpen, student?.id]);
 
   const numAmount = Math.round(Number(amount)) || 0;
+  const isOverpayment = numAmount > remainingDues && remainingDues >= 0;
   const duesAfterPayment = Math.max(0, remainingDues - numAmount);
 
   // Auto calculate default remaining promise and reason dynamically as amount changes
@@ -89,7 +92,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
 
     // Section 35 Rule: Paid cannot exceed Total Fee / remaining dues
     if (numAmount > remainingDues) {
-      setError(`Payment amount cannot exceed remaining dues of ${formatCurrency(remainingDues)}.`);
+      setError(`Amount cannot be more than remaining dues (Rs ${remainingDues.toLocaleString('en-PK')}).`);
       return;
     }
 
@@ -103,13 +106,23 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
       isLockedRef.current = true;
       setIsSubmitting(true);
 
+      // Build notes including bank reference if provided
+      let finalNotes = notes.trim();
+      if (paymentMethod === 'Bank' && bankReference.trim()) {
+        const refSnippet = `Ref/Txn: ${bankReference.trim()}`;
+        finalNotes = finalNotes ? `${refSnippet} | ${finalNotes}` : refSnippet;
+      }
+      if (!finalNotes && extendCommitment && extensionReason) {
+        finalNotes = extensionReason;
+      }
+
       // 1. Record payment transaction
       const newPayment = await addPayment({
         studentId: student.id,
         amount: numAmount,
         paymentDate,
         paymentMethod,
-        notes: notes || (extendCommitment ? extensionReason : '')
+        notes: finalNotes
       });
 
       // 2. Handle commitment resolution or extension
@@ -162,7 +175,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
           {/* Student Dues & Active Commitment Summary */}
           <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs space-y-1.5">
             <div className="flex justify-between items-center text-slate-300">
-              <span>Student: <span className="font-semibold text-white">{student.student_name}</span></span>
+              <span>Student: <span className="font-semibold text-white">{toTitleCase(student.student_name)}</span></span>
               <span className="font-bold text-amber-300">Dues: {formatCurrency(remainingDues)}</span>
             </div>
 
@@ -179,7 +192,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
             )}
           </div>
 
-          {/* Amount Field */}
+          {/* Amount Field with Inline Overpayment Error (No native tooltip) */}
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1">
               Payment Amount (PKR) <span className="text-rose-400">*</span>
@@ -188,12 +201,15 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
               <input
                 type="number"
                 min="1"
-                max={remainingDues}
                 value={amount}
                 onChange={(e) => handleAmountChange(e.target.value)}
                 placeholder={`Max ${remainingDues}`}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 text-sm font-mono font-bold"
+                className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border text-white placeholder-slate-500 focus:outline-none text-sm font-sans tabular-nums font-bold ${
+                  isOverpayment
+                    ? 'border-rose-500 text-rose-300 focus:border-rose-400'
+                    : 'border-slate-700 focus:border-teal-500 focus:ring-1 focus:ring-teal-500'
+                }`}
               />
               <button
                 type="button"
@@ -203,6 +219,12 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
                 Pay Full
               </button>
             </div>
+            {isOverpayment && (
+              <p className="text-rose-400 text-xs font-semibold mt-1.5 flex items-center gap-1 animate-fadeIn">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>Amount cannot be more than remaining dues (Rs {remainingDues.toLocaleString('en-PK')}).</span>
+              </p>
+            )}
           </div>
 
           {/* Payment Date & Method */}
@@ -230,11 +252,27 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
                 className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:outline-none focus:border-teal-500 text-xs"
               >
                 <option value="Cash">Cash</option>
-                <option value="Bank">Bank / Transfer</option>
+                <option value="Bank">Bank Transfer</option>
                 <option value="Other">Other</option>
               </select>
             </div>
           </div>
+
+          {/* Reference / Transaction no. (appears ONLY for Bank Transfer) */}
+          {paymentMethod === 'Bank' && (
+            <div className="p-3 rounded-xl bg-slate-950 border border-teal-500/40 animate-fadeIn space-y-1">
+              <label className="block text-xs font-semibold text-teal-300">
+                Reference / Transaction no. <span className="text-slate-400 font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={bankReference}
+                onChange={(e) => setBankReference(e.target.value)}
+                placeholder="e.g. TXN-948214, Cheque #, or Transfer ID"
+                className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-400 text-xs font-mono"
+              />
+            </div>
+          )}
 
           {/* Partial Payment Extension / Commitment Section */}
           {duesAfterPayment > 0 && (
@@ -261,10 +299,28 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
                     <CalendarClock className="w-4 h-4 text-amber-400" />
                     <span>Extend Commitment / Reschedule Remaining Dues</span>
                   </label>
-                  <span className="text-[11px] font-mono font-bold text-amber-400">
+                  <span className="text-[11px] font-sans tabular-nums font-bold text-amber-400">
                     Rem. Dues: {formatCurrency(duesAfterPayment)}
                   </span>
                 </div>
+
+                {/* Prominent line showing due date movement when extended */}
+                {extendCommitment && (
+                  <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2 font-medium">
+                    <CalendarClock className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      Due date will move from{' '}
+                      <strong className="text-white font-bold">
+                        {student.next_payment_due_date ? formatDate(student.next_payment_due_date) : 'Not set'}
+                      </strong>{' '}
+                      to{' '}
+                      <strong className="text-amber-300 font-bold">
+                        {newExtendedDate ? formatDate(newExtendedDate) : 'new date'}
+                      </strong>
+                      .
+                    </span>
+                  </div>
+                )}
 
                 {extendCommitment && (
                   <div className="space-y-3 pt-2 border-t border-slate-800 text-xs">
@@ -292,7 +348,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
                           value={newPromisedAmount}
                           onChange={(e) => setNewPromisedAmount(e.target.value)}
                           placeholder={`Max ${duesAfterPayment}`}
-                          className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-mono focus:outline-none focus:border-teal-500"
+                          className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white font-sans tabular-nums focus:outline-none focus:border-teal-500"
                         />
                       </div>
                     </div>
@@ -328,7 +384,7 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
               type="text"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Bank slip reference, branch name"
+              placeholder="e.g. Branch name, depositor name"
               className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-500 focus:outline-none focus:border-teal-500 text-xs"
             />
           </div>
@@ -338,16 +394,24 @@ export function AddPaymentModal({ isOpen, onClose, student, onPaymentAdded }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/30 transition-colors disabled:opacity-50"
+              disabled={isSubmitting || isOverpayment}
+              className="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white shadow-md shadow-teal-600/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {isSubmitting ? 'Saving...' : 'Save Payment & Commitment'}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                  <span>Saving Payment...</span>
+                </>
+              ) : (
+                'Save Payment'
+              )}
             </button>
           </div>
         </form>

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { getBrokerPortalDataByRpc } from '../services/brokerService';
 import { formatCurrency, formatDate } from '../utils/feeCalculator';
+import { toTitleCase } from '../utils/textHelper';
 import { printBrokerStatement } from '../utils/printBrokerStatement';
 
 export function BrokerPortalPage() {
@@ -279,7 +280,7 @@ export function BrokerPortalPage() {
               <span>Total Volume</span>
               <DollarSign className="w-4 h-4 text-teal-400" />
             </div>
-            <div className="text-2xl font-mono font-black text-teal-300">{formatCurrency(totalAgreedVolume)}</div>
+            <div className="text-2xl font-sans tabular-nums font-black text-teal-300">{formatCurrency(totalAgreedVolume)}</div>
             <div className="text-[10px] text-slate-500">Agreed Package Value</div>
           </div>
 
@@ -288,7 +289,7 @@ export function BrokerPortalPage() {
               <span>Total Paid</span>
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
-            <div className="text-2xl font-mono font-black text-emerald-400">{formatCurrency(totalPaidVolume)}</div>
+            <div className="text-2xl font-sans tabular-nums font-black text-emerald-400">{formatCurrency(totalPaidVolume)}</div>
             <div className="text-[10px] text-slate-500">Received to Date</div>
           </div>
 
@@ -297,7 +298,7 @@ export function BrokerPortalPage() {
               <span>Remaining Dues</span>
               <AlertTriangle className="w-4 h-4 text-amber-400" />
             </div>
-            <div className="text-2xl font-mono font-black text-amber-400">{formatCurrency(totalDuesVolume)}</div>
+            <div className="text-2xl font-sans tabular-nums font-black text-amber-400">{formatCurrency(totalDuesVolume)}</div>
             <div className="text-[10px] text-slate-500">Outstanding Balance</div>
           </div>
         </div>
@@ -379,12 +380,12 @@ export function BrokerPortalPage() {
                 ) : (
                   filteredStudents.map((s, idx) => (
                     <tr key={s.id} className="hover:bg-slate-850/50 transition-colors">
-                      <td className="py-3.5 px-4 text-center text-slate-500 font-mono text-[11px]">
+                      <td className="py-3.5 px-4 text-center text-slate-500 font-sans tabular-nums text-[11px]">
                         {idx + 1}
                       </td>
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-white text-sm">{s.student_name}</div>
-                        <div className="text-[11px] text-slate-400">S/O {s.father_name}</div>
+                        <div className="font-bold text-white text-sm">{toTitleCase(s.student_name)}</div>
+                        <div className="text-[11px] text-slate-400">S/O {toTitleCase(s.father_name)}</div>
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-slate-200">{s.academic_class}</div>
@@ -395,16 +396,16 @@ export function BrokerPortalPage() {
                           {s.admission_session}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-300 font-mono text-[11px]">
+                      <td className="py-3.5 px-4 text-slate-300 font-sans tabular-nums text-[11px]">
                         {formatDate(s.created_at)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-purple-300">
+                      <td className="py-3.5 px-4 text-right font-sans tabular-nums font-bold text-purple-300">
                         {formatCurrency(s.agreed_snapshot || s.total_fee || 0)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-400">
+                      <td className="py-3.5 px-4 text-right font-sans tabular-nums font-bold text-emerald-400">
                         {formatCurrency(s.total_paid || 0)}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold">
+                      <td className="py-3.5 px-4 text-right font-sans tabular-nums font-bold">
                         <span className={s.dues === 0 ? 'text-emerald-400' : 'text-amber-400'}>
                           {s.dues === 0 ? 'Paid in Full' : formatCurrency(s.dues)}
                         </span>

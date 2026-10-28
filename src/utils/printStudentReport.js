@@ -1,4 +1,6 @@
 import { formatCurrency, formatDate } from './feeCalculator';
+import { toTitleCase } from './textHelper';
+import { formatPhoneNumber } from './phoneHelper';
 
 const collegeLogoSvg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" style="width:100%; height:100%; display:block;">
@@ -70,8 +72,8 @@ export function printStudentReport({ students = [], brokers = [], subtitle = '' 
     return `
       <tr class="${idx % 2 === 1 ? 'even-row' : ''}">
         <td class="text-center font-mono text-muted">${idx + 1}</td>
-        <td class="font-bold text-dark">${escapeHtml(s.student_name)}</td>
-        <td class="text-dark">${escapeHtml(s.father_name)}</td>
+        <td class="font-bold text-dark">${escapeHtml(toTitleCase(s.student_name))}</td>
+        <td class="text-dark">${escapeHtml(toTitleCase(s.father_name))}</td>
         <td class="text-dark">${escapeHtml(classProgram)}</td>
         <td class="text-right font-mono">${formatCurrency(s.total_fee)}</td>
         <td class="text-right font-mono text-emerald font-bold">${formatCurrency(s.total_paid)}</td>
@@ -83,7 +85,7 @@ export function printStudentReport({ students = [], brokers = [], subtitle = '' 
             ${escapeHtml(referral)}
           </span>
         </td>
-        <td class="font-mono text-dark">${escapeHtml(s.contact_number || '-')}</td>
+        <td class="font-mono text-dark">${escapeHtml(formatPhoneNumber(s.contact_number))}</td>
       </tr>
     `;
   }).join('');
@@ -189,7 +191,7 @@ export function printStudentReport({ students = [], brokers = [], subtitle = '' 
     .card-val {
       font-size: 13px;
       font-weight: 900;
-      font-family: 'Segoe UI Mono', Consolas, monospace;
+      font-variant-numeric: tabular-nums;
     }
 
     /* Data Table */
@@ -220,7 +222,7 @@ export function printStudentReport({ students = [], brokers = [], subtitle = '' 
     .text-center { text-align: center; }
     .text-right { text-align: right; }
     .font-bold { font-weight: 700; }
-    .font-mono { font-family: 'Segoe UI Mono', Consolas, monospace; }
+    .font-mono { font-variant-numeric: tabular-nums; }
     .text-dark { color: #0f172a; }
     .text-muted { color: #64748b; }
     .text-emerald { color: #047857; }
