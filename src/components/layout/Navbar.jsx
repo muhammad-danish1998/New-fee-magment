@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, LogOut, KeyRound, Menu, X, Download, Sun, Moon, ChevronDown } from 'lucide-react';
+import { ShieldCheck, LogOut, KeyRound, Menu, X, Download, Sun, Moon, ChevronDown, RefreshCw } from 'lucide-react';
 import { CollegeLogo } from '../common/CollegeLogo';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { usePWAInstallPrompt } from '../../hooks/usePWAInstallPrompt';
 import { UpdateCredentialsModal } from '../auth/UpdateCredentialsModal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { forcePWACacheUpdate } from '../../utils/pwaHelper';
 
 export function Navbar({ onToggleMobileMenu, mobileMenuOpen }) {
   const { user, logout } = useAuth();
@@ -127,7 +128,18 @@ export function Navbar({ onToggleMobileMenu, mobileMenuOpen }) {
         </div>
 
         {/* Right: User Profile & Actions Dropdown */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Quick Refresh / Update PWA button */}
+          <button
+            type="button"
+            onClick={forcePWACacheUpdate}
+            aria-label="Refresh app and check for PWA updates"
+            title="Refresh App & Update PWA (Clears stale cache)"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/90 hover:bg-teal-50 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 border border-slate-300 dark:border-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-teal-500/40"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+
           <div className="relative" ref={dropdownContainerRef}>
             {/* Admin Profile Trigger Button */}
             <button
@@ -230,6 +242,26 @@ export function Navbar({ onToggleMobileMenu, mobileMenuOpen }) {
                     </div>
                     <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                       {isDark ? 'Dark' : 'Light'}
+                    </span>
+                  </button>
+
+                  {/* Check for Updates & Refresh PWA Cache */}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    tabIndex={-1}
+                    onClick={() => {
+                      setIsOpen(false);
+                      forcePWACacheUpdate();
+                    }}
+                    className="w-full flex items-center justify-between px-3.5 py-2 text-xs font-semibold text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950/40 focus:outline-none focus:bg-teal-50 dark:focus:bg-teal-950/40 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <RefreshCw className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                      <span>Update App &amp; Refresh</span>
+                    </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-300">
+                      v1.0.1
                     </span>
                   </button>
 

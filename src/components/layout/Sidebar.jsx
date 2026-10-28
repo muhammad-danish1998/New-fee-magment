@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, UserPlus, Sliders, BookOpen, CalendarDays, X } from 'lucide-react';
+import { LayoutDashboard, Users, UserPlus, Sliders, BookOpen, CalendarDays, X, RefreshCw } from 'lucide-react';
+import { forcePWACacheUpdate } from '../../utils/pwaHelper';
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -71,15 +72,27 @@ export function Sidebar({ mobileMenuOpen, onCloseMobileMenu }) {
           </div>
 
           {/* Quick Summary Box */}
-          <div className="mt-auto pt-4 shrink-0">
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-200 space-y-1.5">
-              <div className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-bold">
-                <BookOpen className="w-4 h-4 shrink-0 text-teal-600 dark:text-teal-400" />
-                <span>Active Academic Sessions</span>
+          <div className="mt-auto pt-4 shrink-0 space-y-2">
+            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-200 space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="flex items-center gap-1.5 text-teal-600 dark:text-teal-400 font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  PWA Portal
+                </span>
+                <span className="font-mono text-slate-400 font-bold text-[10.5px]">v1.0.1</span>
               </div>
-              <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                Annual I &amp; Annual II (Regular, Private &amp; Combine Gap Admissions)
+              <p className="text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">
+                Annual I &amp; Annual II Admissions
               </p>
+              <button
+                type="button"
+                onClick={forcePWACacheUpdate}
+                title="Force refresh app and clear PWA cache"
+                className="w-full py-1.5 px-2 rounded-lg bg-teal-500/10 hover:bg-teal-500/20 text-teal-700 dark:text-teal-300 text-[11px] font-bold border border-teal-500/25 transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Check for PWA Update</span>
+              </button>
             </div>
           </div>
         </div>
